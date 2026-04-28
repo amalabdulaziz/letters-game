@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>سباق الحروف 🏁</title>
+    <title>سباق الحروف - النسخة المطورة 🏆</title>
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.1.1/firebase-app.js";
@@ -19,53 +19,58 @@
         const db = getDatabase(app);
         const gameRef = ref(db, 'letterGame');
 
-        let myRole = "", audioCtx = null, timerInterval = null, currentLetter = "";
+        let myRole = "", audioCtx = null, timerInterval = null, currentLetter = "", isAIActive = false;
+        const categories = ["حيوان","جماد","بلاد","أكلة","مهنة","نبات"];
 
-        // دالة الصوت المحدثة لتعمل مع كل نقرة
-        window.playSound = (freq, type = 'square') => {
+        window.playSound = (freq, type = 'sine') => {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') audioCtx.resume();
-            
             const o = audioCtx.createOscillator();
             const g = audioCtx.createGain();
             o.type = type; o.connect(g); g.connect(audioCtx.destination);
             o.frequency.value = freq; o.start();
             g.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.2);
-            o.stop(audioCtx.currentTime + 0.2);
+            g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3);
+            o.stop(audioCtx.currentTime + 0.3);
         };
 
         window.initGame = (role, ai = false) => {
-            window.playSound(800, 'sine'); // صوت عند الدخول
+            window.playSound(440);
             myRole = role;
-            update(gameRef, { isAI: ai });
+            isAIActive = ai;
+            update(gameRef, { isAI: ai, status: 'picking', turn: 'p1', timer: 15 });
             document.getElementById('setupLayer').style.display = 'none';
             listen();
         };
 
         window.pick = (l) => {
-            window.playSound(600, 'square'); // صوت فوري عند ضغط الحرف
-            const cats = ["حيوان","جماد","بلاد","أكلة","مهنة"];
+            window.playSound(800 + (l.charCodeAt(0) % 200)); 
             update(gameRef, { 
                 currentL: l, status: "answering", [`used/${l}`]: true, timer: 15,
-                cat: cats[Math.floor(Math.random()*cats.length)]
+                cat: categories[Math.floor(Math.random() * categories.length)]
             });
+        };
+
+        // ميزة المساعدة: تغيير التصنيف
+        window.changeCat = () => {
+            window.playSound(1000);
+            update(gameRef, { cat: categories[Math.floor(Math.random() * categories.length)] });
+            document.getElementById('helpBtn').style.display = 'none';
         };
 
         window.submitAns = () => {
             const input = document.getElementById('ansInput');
             const val = input.value.trim();
-            if (val.startsWith(currentLetter)) {
-                window.playSound(1200, 'triangle'); // صوت صح
+            if (val.startsWith(currentLetter) && val.length > 1) {
+                window.playSound(1200);
                 runTransaction(ref(db, `letterGame/${myRole}S`), (s) => (s || 0) + 1);
                 update(gameRef, { turn: (myRole === 'p1' ? 'p2' : 'p1'), status: 'picking', timer: 15 });
                 input.value = "";
             } else {
-                window.playSound(200, 'sawtooth'); // صوت خطأ
+                window.playSound(200);
             }
         };
 
-        // باقي دوال النظام (Listen & Timer) تبقى كما هي لضمان الاستقرار
         function listen() {
             onValue(gameRef, (snap) => {
                 const d = snap.val(); if(!d) return;
@@ -73,18 +78,33 @@
                 document.getElementById('timer').innerText = d.timer;
                 document.getElementById('p1S').innerText = d.p1S || 0;
                 document.getElementById('p2S').innerText = d.p2S || 0;
-                if (d.turn === myRole && d.status === 'answering' && d.timer <= 5 && d.timer > 0) window.playSound(1500, 'sine');
+                
                 document.querySelectorAll('.letter').forEach(el => {
                     el.classList.toggle('used', !!(d.used && d.used[el.innerText]));
                 });
+
                 if(d.turn === myRole) {
                     document.getElementById('lock').style.display = 'none';
                     document.getElementById('ansInput').disabled = (d.status === 'picking');
-                    document.getElementById('msg').innerText = d.status==='picking' ? "دورك الآن: اختر حرفاً" : d.cat + " بحرف (" + currentLetter + ")";
+                    document.getElementById('msg').innerText = d.status==='picking' ? "دورك: اختر حرفاً" : d.cat + " بحرف (" + currentLetter + ")";
+                    document.getElementById('helpBtn').style.display = d.status==='answering' ? 'block' : 'none';
                     if(d.status==='answering' && !timerInterval) startTimer();
                 } else {
                     document.getElementById('lock').style.display = 'flex';
                     clearInterval(timerInterval); timerInterval = null;
+                    
+                    // تحسين ذكاء الكمبيوتر ومنع التعليق
+                    if (d.isAI && d.turn === 'p2' && myRole === 'p1') {
+                        let aiWait = d.status === 'picking' ? 2000 : 4000;
+                        setTimeout(() => {
+                            if (d.status === 'picking') {
+                                const avail = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي".split('').filter(l => !d.used || !d.used[l]);
+                                if (avail.length > 0) pick(avail[Math.floor(Math.random()*avail.length)]);
+                            } else {
+                                update(gameRef, { p2S: (d.p2S||0)+1, turn: 'p1', status: 'picking', timer: 15 });
+                            }
+                        }, aiWait);
+                    }
                 }
             });
         }
@@ -99,45 +119,70 @@
                 }
             }, 1000);
         }
+
         window.forceReset = () => { if(confirm("تصفير؟")) remove(gameRef).then(() => location.reload()); };
     </script>
 
     <style>
-        :root { --gold: #ffd700; --bg: #0a0f1e; --btn: #1e2a44; }
+        :root { --gold: #ffd700; --bg: #0f172a; --btn: #1e293b; --accent: #38bdf8; }
         * { box-sizing: border-box; touch-action: manipulation; }
-        body { height: 100vh; width: 100vw; margin: 0; background: var(--bg); color: white; overflow: hidden; position: fixed; font-family: sans-serif; }
-        #setupLayer { position: fixed; inset: 0; background: var(--bg); z-index: 5000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .btn-style { width: 280px; padding: 20px; margin: 10px; border: 2px solid var(--gold); border-radius: 12px; font-size: 1.2rem; background: var(--btn); color: white; font-weight: bold; cursor: pointer; }
-        .score-bar { display: flex; justify-content: space-around; background: #161e31; padding: 15px; border-bottom: 2px solid var(--gold); align-items: center; }
-        .ans-container { display: flex; width: 95%; margin: 10px auto; gap: 5px; }
-        .ans-box { flex-grow: 1; padding: 15px; border-radius: 10px; border: 2px solid var(--gold); background: #000; color: #fff; font-size: 18px !important; text-align: center; }
-        .check-btn { padding: 10px 20px; background: var(--gold); color: black; border: none; border-radius: 10px; font-weight: bold; }
-        .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; padding: 10px; height: 50vh; }
-        .letter { background: var(--btn); display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid #333; font-weight: bold; color: var(--gold); font-size: 1.3rem; }
-        .used { opacity: 0.1; pointer-events: none; }
-        #lock { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; display: none; align-items: center; justify-content: center; }
-        #timer { font-size: 2.2rem; color: var(--gold); font-weight: bold; }
+        body { 
+            height: 100vh; width: 100vw; margin: 0; 
+            background: radial-gradient(circle, #1e293b 0%, #0f172a 100%);
+            color: white; overflow: hidden; position: fixed; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        #setupLayer { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.95); z-index: 5000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .btn-style { 
+            width: 280px; padding: 20px; margin: 10px; border: 2px solid var(--gold); border-radius: 15px; 
+            font-size: 1.2rem; background: var(--btn); color: white; font-weight: bold; cursor: pointer;
+            transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .btn-style:active { transform: scale(0.95); }
+        .score-bar { display: flex; justify-content: space-around; background: rgba(30, 41, 59, 0.8); padding: 15px; border-bottom: 2px solid var(--gold); backdrop-filter: blur(10px); }
+        .ans-container { display: flex; width: 95%; margin: 10px auto; gap: 8px; }
+        .ans-box { 
+            flex-grow: 1; padding: 15px; border-radius: 12px; border: 2px solid var(--accent); 
+            background: #000; color: #fff; font-size: 20px !important; text-align: center; outline: none;
+        }
+        .check-btn { padding: 10px 20px; background: var(--gold); color: #000; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
+        .help-btn { background: #eab308; color: black; padding: 5px 15px; border-radius: 20px; border: none; font-size: 0.8rem; font-weight: bold; margin: 5px auto; display: none; }
+        .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; padding: 10px; height: 45vh; }
+        .letter { 
+            background: var(--btn); display: flex; align-items: center; justify-content: center; 
+            border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); font-weight: bold; 
+            color: var(--gold); font-size: 1.4rem; transition: 0.2s;
+        }
+        .letter:active { background: var(--accent); color: white; }
+        .used { opacity: 0.1; transform: scale(0.8); pointer-events: none; }
+        #lock { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        #timer { font-size: 2.5rem; color: var(--gold); text-shadow: 0 0 10px rgba(255,215,0,0.5); }
     </style>
 </head>
 <body>
     <div id="setupLayer">
-        <h1 style="color:var(--gold)">سباق الحروف</h1>
-        <button class="btn-style" onclick="initGame('p1', true)">👤 ضد الكمبيوتر</button>
+        <h1 style="color:var(--gold); font-size: 2.5rem; text-shadow: 0 0 20px var(--gold);">سباق الحروف</h1>
+        <button class="btn-style" onclick="initGame('p1', true)">👤 تحدي الكمبيوتر</button>
         <button class="btn-style" onclick="initGame('p1', false)">👥 لاعب 1 (أونلاين)</button>
         <button class="btn-style" onclick="initGame('p2', false)">👥 لاعب 2 (أونلاين)</button>
-        <button class="btn-style" style="border-color:red; color:red;" onclick="forceReset()">🔄 تصفير</button>
+        <button class="btn-style" style="border-color:#ef4444; color:#ef4444;" onclick="forceReset()">🔄 تصفير السيرفر</button>
     </div>
-    <div id="lock"><h2>⏳ دور الخصم..</h2></div>
+
+    <div id="lock"><h2>⏳ انتظر دور الخصم...</h2></div>
+
     <div class="score-bar">
-        <div>P1: <b id="p1S">0</b></div>
+        <div style="text-align:center">P1<br><b id="p1S" style="color:var(--accent)">0</b></div>
         <div id="timer">15</div>
-        <div>P2: <b id="p2S">0</b></div>
+        <div style="text-align:center">P2<br><b id="p2S" style="color:#f87171">0</b></div>
     </div>
-    <h3 id="msg" style="text-align:center; color:var(--gold); margin: 5px 0;">اختر حرفاً</h3>
+
+    <h3 id="msg" style="text-align:center; color:var(--gold); margin: 10px 0;">اختر حرفاً</h3>
+    <button id="helpBtn" class="help-btn" onclick="changeCat()">🔄 تغيير المطلوب؟</button>
+
     <div class="ans-container">
-        <input type="text" id="ansInput" class="ans-box" placeholder="اكتب هنا..." disabled autocomplete="off">
+        <input type="text" id="ansInput" class="ans-box" placeholder="اكتب إجابتك..." disabled autocomplete="off">
         <button class="check-btn" onclick="submitAns()">✅ تحقق</button>
     </div>
+
     <div class="grid">
         <script>
             "أبتثجحخدذرزسشصضطظعغفقكلمنهوي".split('').forEach(l => {
