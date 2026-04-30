@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>سباق الحروف - النسخة المستقرة 🏁</title>
+    <title>سباق الحروف - الإصدار الذهبي 🏆</title>
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.1.1/firebase-app.js";
@@ -20,7 +20,7 @@
         const gameRef = ref(db, 'letterGame');
 
         let myRole = "", audioCtx = null, timerInterval = null, currentLetter = "", baseTime = 15;
-        const categories = ["حيوان","جماد","بلاد","أكلة","مهنة","نبات"];
+        const categories = ["حيوان 🦁","جماد 🚗","بلاد 🌍","أكلة 🍎","مهنة 👨‍🔧","نبات 🌿"];
 
         window.playSound = (freq, type = 'sine', duration = 0.2) => {
             try {
@@ -40,10 +40,11 @@
             window.playSound(600);
             myRole = role;
             baseTime = time;
-            // تصفير البيانات عند البداية لضمان عدم التعليق
+            const goldenL = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي" [Math.floor(Math.random()*28)];
             set(gameRef, { 
                 isAI: ai, status: 'picking', turn: 'p1', timer: time, 
-                used: {}, level: time, p1S: 0, p2S: 0, currentL: "" 
+                used: {}, level: time, p1S: 0, p2S: 0, p1L: 3, p2L: 3, 
+                golden: goldenL, currentL: "" 
             });
             document.getElementById('setupLayer').style.display = 'none';
             listen();
@@ -61,116 +62,144 @@
             const input = document.getElementById('ansInput');
             const val = input.value.trim();
             if (val.startsWith(currentLetter) && val.length > 1) {
-                window.playSound(1000);
-                runTransaction(ref(db, `letterGame/${myRole}S`), (s) => (s || 0) + 1);
-                update(gameRef, { turn: (myRole === 'p1' ? 'p2' : 'p1'), status: 'picking', timer: baseTime });
-                input.value = "";
+                onValue(gameRef, (snap) => {
+                    const d = snap.val();
+                    const points = (currentLetter === d.golden) ? 2 : 1;
+                    window.playSound(1000);
+                    runTransaction(ref(db, `letterGame/${myRole}S`), (s) => (s || 0) + points);
+                    switchTurn();
+                    input.value = "";
+                }, { onlyOnce: true });
             } else {
                 window.playSound(150, 'sawtooth');
+                alert("يجب أن تبدأ الكلمة بحرف " + currentLetter);
             }
         };
+
+        function switchTurn() {
+            onValue(gameRef, (snap) => {
+                const d = snap.val();
+                if (!d) return;
+                const nextTurn = d.turn === 'p1' ? 'p2' : 'p1';
+                update(gameRef, { turn: nextTurn, status: 'picking', timer: baseTime });
+            }, { onlyOnce: true });
+        }
 
         function listen() {
             onValue(gameRef, (snap) => {
                 const d = snap.val(); if(!d) return;
                 currentLetter = d.currentL || "";
-                baseTime = d.level || 15;
                 document.getElementById('timer').innerText = d.timer;
                 document.getElementById('p1S').innerText = d.p1S || 0;
                 document.getElementById('p2S').innerText = d.p2S || 0;
+                document.getElementById('p1Hearts').innerText = "❤️".repeat(d.p1L || 0);
+                document.getElementById('p2Hearts').innerText = "❤️".repeat(d.p2L || 0);
                 
-                // تنبيه الـ 5 ثواني
+                if (d.p1L <= 0 || d.p2L <= 0) {
+                    alert("انتهت اللعبة!");
+                    location.reload();
+                }
+
                 if (d.turn === myRole && d.status === 'answering' && d.timer <= 5 && d.timer > 0) {
                     window.playSound(1200, 'sine', 0.1);
                 }
 
+                if (d.timer <= 0 && d.status === 'answering') {
+                    if (d.turn === myRole) {
+                        runTransaction(ref(db, `letterGame/${myRole}L`), (l) => (l || 1) - 1);
+                        switchTurn();
+                    }
+                }
+
                 document.querySelectorAll('.letter').forEach(el => {
-                    el.classList.toggle('used', !!(d.used && d.used[el.innerText]));
+                    const isUsed = !!(d.used && d.used[el.innerText]);
+                    el.classList.toggle('used', isUsed);
+                    el.style.borderColor = (el.innerText === d.golden) ? "#ffd700" : "#eee";
+                    el.style.color = (el.innerText === d.golden) ? "#b8860b" : "#495057";
                 });
 
-                // نظام التحكم في "قفل الشاشة"
                 if(d.turn === myRole) {
                     document.getElementById('lock').style.display = 'none';
                     document.getElementById('ansInput').disabled = (d.status === 'picking');
                     document.getElementById('msg').innerText = d.status==='picking' ? "دورك الآن: اختر حرفاً" : d.cat + " بحرف (" + currentLetter + ")";
+                    if(d.status === 'answering' && !timerInterval) {
+                        timerInterval = setInterval(() => {
+                            runTransaction(ref(db, 'letterGame/timer'), t => (t > 0 ? t - 1 : 0));
+                        }, 1000);
+                    }
                 } else {
                     document.getElementById('lock').style.display = 'flex';
-                    // تشغيل ذكاء الكمبيوتر إذا كان الدور له
+                    clearInterval(timerInterval); timerInterval = null;
                     if (d.isAI && d.turn === 'p2') {
                         setTimeout(() => {
                             if (d.status === 'picking') {
                                 const avail = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي".split('').filter(l => !d.used || !d.used[l]);
                                 if (avail.length > 0) pick(avail[Math.floor(Math.random()*avail.length)]);
-                            } else {
-                                update(gameRef, { p2S: (d.p2S||0)+1, turn: 'p1', status: 'picking', timer: baseTime });
+                            } else if (d.status === 'answering') {
+                                runTransaction(ref(db, `letterGame/p2S`), (s) => (s || 0) + 1);
+                                switchTurn();
                             }
-                        }, 2500);
+                        }, 3000);
                     }
-                }
-                
-                // الميقاتي (يعمل فقط عند اللاعب صاحب الدور)
-                if(d.turn === myRole && d.status === 'answering' && !timerInterval) {
-                    timerInterval = setInterval(() => {
-                        runTransaction(ref(db, 'letterGame/timer'), t => (t > 0 ? t - 1 : 0));
-                    }, 1000);
-                } else if (d.turn !== myRole) {
-                    clearInterval(timerInterval); timerInterval = null;
                 }
             });
         }
 
-        window.forceReset = () => { if(confirm("سيتم تصفير كل شيء، هل أنت متأكد؟")) remove(gameRef).then(() => location.reload()); };
+        window.forceReset = () => { if(confirm("تصفير النظام؟")) remove(gameRef).then(() => location.reload()); };
     </script>
 
     <style>
-        body { margin: 0; background: #ffffff; font-family: 'Segoe UI', Tahoma, sans-serif; height: 100vh; overflow: hidden; }
-        #setupLayer { position: fixed; inset: 0; background: white; z-index: 5000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-        .mode-card { background: #f8f9fa; padding: 20px; border-radius: 20px; margin: 10px; width: 90%; max-width: 400px; border: 2px solid #dee2e6; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .btn { padding: 12px 25px; margin: 5px; border-radius: 12px; border: none; cursor: pointer; font-weight: bold; font-size: 1rem; transition: 0.2s; }
-        .btn:active { transform: scale(0.95); }
-        .btn-green { background: #28a745; color: white; }
-        .btn-yellow { background: #ffc107; color: black; }
-        .btn-red { background: #dc3545; color: white; }
-        .score-bar { display: flex; justify-content: space-around; background: #fff; padding: 15px; border-bottom: 3px solid #eee; align-items: center; }
-        .ans-container { display: flex; padding: 10px; gap: 8px; background: #f1f3f5; }
-        .ans-box { flex-grow: 1; padding: 15px; border-radius: 12px; border: 2px solid #ced4da; font-size: 20px; text-align: center; }
-        .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; padding: 15px; background: #fff; height: 45vh; }
-        .letter { background: #fff; display: flex; align-items: center; justify-content: center; border: 2px solid #e9ecef; border-radius: 12px; font-size: 1.6rem; color: #495057; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-        .used { background: #e9ecef; color: #dee2e6; border-color: #f8f9fa; pointer-events: none; }
-        #lock { position: fixed; inset: 0; background: rgba(255,255,255,0.8); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
-        #timer { font-size: 3rem; color: #212529; }
+        body { margin: 0; background: #ffffff; background-image: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%); font-family: 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; }
+        #setupLayer { position: fixed; inset: 0; background: white; z-index: 5000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .mode-card { background: white; padding: 25px; border-radius: 25px; margin: 10px; width: 85%; max-width: 400px; text-align: center; border: 1px solid #eee; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        .btn { padding: 12px 25px; margin: 5px; border-radius: 15px; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-green { background: #2ecc71; color: white; }
+        .btn-yellow { background: #f1c40f; color: black; }
+        .btn-red { background: #e74c3c; color: white; }
+        .score-bar { display: flex; justify-content: space-around; background: rgba(255,255,255,0.9); padding: 15px; border-bottom: 1px solid #eee; align-items: center; backdrop-filter: blur(10px); }
+        .hearts { font-size: 0.8rem; margin-top: 5px; }
+        .ans-container { display: flex; padding: 15px; gap: 10px; background: white; }
+        .ans-box { flex-grow: 1; padding: 18px; border-radius: 20px; border: 2px solid #f0f0f0; font-size: 20px; text-align: center; background: #fdfdfd; outline: none; transition: 0.3s; }
+        .ans-box:focus { border-color: #2ecc71; box-shadow: 0 0 10px rgba(46,204,113,0.1); }
+        .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; padding: 15px; height: 42vh; }
+        .letter { background: white; display: flex; align-items: center; justify-content: center; border: 2px solid #eee; border-radius: 18px; font-size: 1.6rem; font-weight: bold; transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        .letter:active { transform: scale(0.9); }
+        .used { background: #f8f9fa; color: #eee !important; border-color: #f1f1f1 !important; pointer-events: none; transform: scale(0.9); }
+        #lock { position: fixed; inset: 0; background: rgba(255,255,255,0.7); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+        #timer { font-size: 3.5rem; font-weight: 800; color: #2d3436; }
     </style>
 </head>
 <body>
     <div id="setupLayer">
-        <h1 style="margin-bottom: 30px; color: #212529;">🏁 سباق الحروف</h1>
+        <h1 style="font-size: 2.5rem; color: #2d3436; margin-bottom: 5px;">🏆 سباق الحروف</h1>
+        <p style="color: #636e72; margin-bottom: 30px;">تحدى ذكاءك وسرعتك!</p>
         <div class="mode-card">
-            <h3 style="margin-top:0">👤 ضد الكمبيوتر</h3>
-            <button class="btn btn-green" onclick="setupGame('p1', true, 20)">سهل</button>
-            <button class="btn btn-yellow" onclick="setupGame('p1', true, 15)">متوسط</button>
-            <button class="btn btn-red" onclick="setupGame('p1', true, 7)">صعب</button>
+            <h3 style="margin-top:0">👤 تحدي الكمبيوتر</h3>
+            <button class="btn btn-green" onclick="setupGame('p1', true, 20)">سهل 🟢</button>
+            <button class="btn btn-yellow" onclick="setupGame('p1', true, 15)">متوسط 🟡</button>
+            <button class="btn btn-red" onclick="setupGame('p1', true, 7)">صعب 🔴</button>
         </div>
         <div class="mode-card">
-            <h3 style="margin-top:0">👥 لاعب ضد لاعب</h3>
-            <button class="btn btn-green" onclick="setupGame('p1', false, 15)">أنا لاعب 1</button>
-            <button class="btn btn-green" onclick="setupGame('p2', false, 15)">أنا لاعب 2</button>
+            <h3 style="margin-top:0">👥 تحدي الأصدقاء</h3>
+            <button class="btn btn-green" onclick="setupGame('p1', false, 15)">لاعب 1</button>
+            <button class="btn btn-green" onclick="setupGame('p2', false, 15)">لاعب 2</button>
         </div>
-        <button class="btn" style="background:#6c757d; color:white; margin-top:30px;" onclick="forceReset()">🔄 تصفير وإصلاح التعليق</button>
+        <button class="btn" style="background:#dfe6e9; color:#636e72; margin-top:20px;" onclick="forceReset()">🔄 تصفير السيرفر</button>
     </div>
 
-    <div id="lock"><h1 style="color:#000">⏳ دور الخصم...</h1></div>
+    <div id="lock"><h2 style="color:#2d3436">⏳ انتظر دور الخصم...</h2></div>
 
     <div class="score-bar">
-        <div style="text-align:center">P1<br><b id="p1S">0</b></div>
+        <div style="text-align:center">P1 <div id="p1Hearts" class="hearts"></div><b id="p1S" style="font-size:1.5rem">0</b></div>
         <div id="timer">15</div>
-        <div style="text-align:center">P2<br><b id="p2S">0</b></div>
+        <div style="text-align:center">P2 <div id="p2Hearts" class="hearts"></div><b id="p2S" style="font-size:1.5rem">0</b></div>
     </div>
 
-    <h2 id="msg" style="text-align:center; margin: 15px 0; color: #495057;">اختر حرفاً</h2>
+    <h2 id="msg" style="text-align:center; margin: 15px 0; color: #2d3436; font-weight: 600;">اختر حرفاً</h2>
 
     <div class="ans-container">
-        <input type="text" id="ansInput" class="ans-box" placeholder="اكتب هنا..." disabled autocomplete="off">
-        <button class="btn btn-green" onclick="submitAns()">✅</button>
+        <input type="text" id="ansInput" class="ans-box" placeholder="اكتب الإجابة هنا..." disabled autocomplete="off">
+        <button class="btn btn-green" style="padding: 15px 30px;" onclick="submitAns()">✅</button>
     </div>
 
     <div class="grid">
