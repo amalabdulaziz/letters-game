@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>سباق الحروف - الإصدار الذهبي 🏆</title>
+    <title>سباق الحروف - النسخة الذهبية الكاملة 🏆</title>
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.1.1/firebase-app.js";
@@ -19,32 +19,40 @@
         const db = getDatabase(app);
         const gameRef = ref(db, 'letterGame');
 
-        let myRole = "", audioCtx = null, timerInterval = null, currentLetter = "", baseTime = 15;
+        let myRole = "", audioCtx = null, timerInterval = null, bgMusic = null;
         const categories = ["حيوان 🦁","جماد 🚗","بلاد 🌍","أكلة 🍎","مهنة 👨‍🔧","نبات 🌿"];
 
-        window.playSound = (freq, type = 'sine', duration = 0.2) => {
-            try {
-                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                const o = audioCtx.createOscillator();
-                const g = audioCtx.createGain();
-                o.type = type; o.connect(g); g.connect(audioCtx.destination);
-                o.frequency.value = freq; o.start();
-                g.gain.setValueAtTime(0.2, audioCtx.currentTime);
-                g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
-                o.stop(audioCtx.currentTime + duration);
-            } catch(e) {}
+        // دالة الأصوات
+        window.playSound = (freq, type = 'sine', duration = 0.2, vol = 0.2) => {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.type = type; o.frequency.value = freq;
+            g.gain.setValueAtTime(vol, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + duration);
         };
 
+        // موسيقى هادئة جداً
+        function startBgMusic() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.type = 'triangle'; o.frequency.value = 110; 
+            g.gain.value = 0.02; o.connect(g); g.connect(audioCtx.destination);
+            o.start();
+        }
+
         window.setupGame = (role, ai, time) => {
-            window.playSound(600);
             myRole = role;
-            baseTime = time;
-            const goldenL = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي" [Math.floor(Math.random()*28)];
+            startBgMusic();
+            const chars = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي";
+            const goldenL = chars[Math.floor(Math.random() * chars.length)];
+            
             set(gameRef, { 
                 isAI: ai, status: 'picking', turn: 'p1', timer: time, 
                 used: {}, level: time, p1S: 0, p2S: 0, p1L: 3, p2L: 3, 
-                golden: goldenL, currentL: "" 
+                golden: goldenL, currentL: "", lastUpdate: Date.now()
             });
             document.getElementById('setupLayer').style.display = 'none';
             listen();
@@ -53,7 +61,7 @@
         window.pick = (l) => {
             window.playSound(800, 'square', 0.1);
             update(gameRef, { 
-                currentL: l, status: "answering", [`used/${l}`]: true, timer: baseTime,
+                currentL: l, status: "answering", [`used/${l}`]: true, timer: 15,
                 cat: categories[Math.floor(Math.random() * categories.length)]
             });
         };
@@ -61,67 +69,52 @@
         window.submitAns = () => {
             const input = document.getElementById('ansInput');
             const val = input.value.trim();
-            if (val.startsWith(currentLetter) && val.length > 1) {
-                onValue(gameRef, (snap) => {
-                    const d = snap.val();
-                    const points = (currentLetter === d.golden) ? 2 : 1;
-                    window.playSound(1000);
-                    runTransaction(ref(db, `letterGame/${myRole}S`), (s) => (s || 0) + points);
-                    switchTurn();
-                    input.value = "";
-                }, { onlyOnce: true });
-            } else {
-                window.playSound(150, 'sawtooth');
-                alert("يجب أن تبدأ الكلمة بحرف " + currentLetter);
-            }
-        };
-
-        function switchTurn() {
             onValue(gameRef, (snap) => {
                 const d = snap.val();
-                if (!d) return;
-                const nextTurn = d.turn === 'p1' ? 'p2' : 'p1';
-                update(gameRef, { turn: nextTurn, status: 'picking', timer: baseTime });
-            }, { onlyOnce: true });
-        }
+                if (val.startsWith(d.currentL) && val.length > 1) {
+                    const pts = (d.currentL === d.golden) ? 2 : 1;
+                    runTransaction(ref(db, `letterGame/${myRole}S`), s => (s || 0) + pts);
+                    update(gameRef, { turn: (myRole==='p1'?'p2':'p1'), status:'picking', timer: d.level });
+                    input.value = "";
+                } else { window.playSound(100, 'sawtooth', 0.5); }
+            }, {onlyOnce: true});
+        };
 
         function listen() {
             onValue(gameRef, (snap) => {
                 const d = snap.val(); if(!d) return;
-                currentLetter = d.currentL || "";
-                document.getElementById('timer').innerText = d.timer;
+                
+                // تحديث الشاشة
                 document.getElementById('p1S').innerText = d.p1S || 0;
                 document.getElementById('p2S').innerText = d.p2S || 0;
                 document.getElementById('p1Hearts').innerText = "❤️".repeat(d.p1L || 0);
                 document.getElementById('p2Hearts').innerText = "❤️".repeat(d.p2L || 0);
-                
-                if (d.p1L <= 0 || d.p2L <= 0) {
-                    alert("انتهت اللعبة!");
-                    location.reload();
-                }
+                document.getElementById('timer').innerText = d.timer;
 
-                if (d.turn === myRole && d.status === 'answering' && d.timer <= 5 && d.timer > 0) {
-                    window.playSound(1200, 'sine', 0.1);
-                }
-
-                if (d.timer <= 0 && d.status === 'answering') {
-                    if (d.turn === myRole) {
-                        runTransaction(ref(db, `letterGame/${myRole}L`), (l) => (l || 1) - 1);
-                        switchTurn();
-                    }
-                }
-
+                // تمييز الحرف الذهبي
                 document.querySelectorAll('.letter').forEach(el => {
                     const isUsed = !!(d.used && d.used[el.innerText]);
-                    el.classList.toggle('used', isUsed);
-                    el.style.borderColor = (el.innerText === d.golden) ? "#ffd700" : "#eee";
-                    el.style.color = (el.innerText === d.golden) ? "#b8860b" : "#495057";
+                    el.className = 'letter' + (isUsed ? ' used' : '');
+                    if (el.innerText === d.golden) el.classList.add('golden-border');
                 });
 
+                // صوت الـ 3 ثواني
+                if (d.turn === myRole && d.status === 'answering' && d.timer <= 3 && d.timer > 0) {
+                    window.playSound(1500, 'sine', 0.05, 0.3);
+                }
+
+                // انتقال الدور عند انتهاء الوقت
+                if (d.timer <= 0 && d.status === 'answering' && d.turn === myRole) {
+                    runTransaction(ref(db, `letterGame/${myRole}L`), l => (l || 1) - 1);
+                    update(gameRef, { turn: (myRole==='p1'?'p2':'p1'), status:'picking', timer: d.level });
+                }
+
+                // إدارة الأدوار
                 if(d.turn === myRole) {
                     document.getElementById('lock').style.display = 'none';
                     document.getElementById('ansInput').disabled = (d.status === 'picking');
-                    document.getElementById('msg').innerText = d.status==='picking' ? "دورك الآن: اختر حرفاً" : d.cat + " بحرف (" + currentLetter + ")";
+                    document.getElementById('msg').innerText = d.status==='picking' ? "دورك الآن: اختر حرفاً" : d.cat + " بحرف (" + d.currentL + ")";
+                    
                     if(d.status === 'answering' && !timerInterval) {
                         timerInterval = setInterval(() => {
                             runTransaction(ref(db, 'letterGame/timer'), t => (t > 0 ? t - 1 : 0));
@@ -130,76 +123,72 @@
                 } else {
                     document.getElementById('lock').style.display = 'flex';
                     clearInterval(timerInterval); timerInterval = null;
+                    // تحكم الكمبيوتر
                     if (d.isAI && d.turn === 'p2') {
                         setTimeout(() => {
                             if (d.status === 'picking') {
                                 const avail = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي".split('').filter(l => !d.used || !d.used[l]);
                                 if (avail.length > 0) pick(avail[Math.floor(Math.random()*avail.length)]);
-                            } else if (d.status === 'answering') {
-                                runTransaction(ref(db, `letterGame/p2S`), (s) => (s || 0) + 1);
-                                switchTurn();
+                            } else {
+                                update(gameRef, { p2S: (d.p2S||0)+1, turn: 'p1', status: 'picking', timer: d.level });
                             }
-                        }, 3000);
+                        }, 2500);
                     }
                 }
             });
         }
 
-        window.forceReset = () => { if(confirm("تصفير النظام؟")) remove(gameRef).then(() => location.reload()); };
+        window.forceReset = () => { if(confirm("تصفير؟")) remove(gameRef).then(() => location.reload()); };
     </script>
 
     <style>
-        body { margin: 0; background: #ffffff; background-image: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%); font-family: 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; }
+        body { margin: 0; background: #ffffff; font-family: sans-serif; height: 100vh; overflow: hidden; }
         #setupLayer { position: fixed; inset: 0; background: white; z-index: 5000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .mode-card { background: white; padding: 25px; border-radius: 25px; margin: 10px; width: 85%; max-width: 400px; text-align: center; border: 1px solid #eee; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
-        .btn { padding: 12px 25px; margin: 5px; border-radius: 15px; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .mode-card { background: #fdfdfd; padding: 20px; border-radius: 20px; margin: 10px; width: 80%; border: 1px solid #eee; box-shadow: 0 5px 15px rgba(0,0,0,0.05); text-align: center; }
+        .btn { padding: 12px 20px; margin: 5px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; }
         .btn-green { background: #2ecc71; color: white; }
-        .btn-yellow { background: #f1c40f; color: black; }
-        .btn-red { background: #e74c3c; color: white; }
-        .score-bar { display: flex; justify-content: space-around; background: rgba(255,255,255,0.9); padding: 15px; border-bottom: 1px solid #eee; align-items: center; backdrop-filter: blur(10px); }
-        .hearts { font-size: 0.8rem; margin-top: 5px; }
-        .ans-container { display: flex; padding: 15px; gap: 10px; background: white; }
-        .ans-box { flex-grow: 1; padding: 18px; border-radius: 20px; border: 2px solid #f0f0f0; font-size: 20px; text-align: center; background: #fdfdfd; outline: none; transition: 0.3s; }
-        .ans-box:focus { border-color: #2ecc71; box-shadow: 0 0 10px rgba(46,204,113,0.1); }
-        .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; padding: 15px; height: 42vh; }
-        .letter { background: white; display: flex; align-items: center; justify-content: center; border: 2px solid #eee; border-radius: 18px; font-size: 1.6rem; font-weight: bold; transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
-        .letter:active { transform: scale(0.9); }
-        .used { background: #f8f9fa; color: #eee !important; border-color: #f1f1f1 !important; pointer-events: none; transform: scale(0.9); }
-        #lock { position: fixed; inset: 0; background: rgba(255,255,255,0.7); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
-        #timer { font-size: 3.5rem; font-weight: 800; color: #2d3436; }
+        .score-bar { display: flex; justify-content: space-around; padding: 15px; border-bottom: 2px solid #f5f5f5; align-items: center; background: white; }
+        .hearts { color: #e74c3c; font-size: 1rem; display: block; height: 20px; }
+        .ans-container { display: flex; padding: 10px; gap: 10px; background: #fff; }
+        .ans-box { flex-grow: 1; padding: 15px; border-radius: 12px; border: 2px solid #eee; font-size: 20px; text-align: center; outline: none; }
+        .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; padding: 15px; height: 45vh; background: #fff; }
+        .letter { background: white; display: flex; align-items: center; justify-content: center; border: 2px solid #f0f0f0; border-radius: 15px; font-size: 1.5rem; font-weight: bold; color: #444; }
+        .golden-border { border: 3px solid #ffd700 !important; background: #fffdf0 !important; color: #b8860b !important; box-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
+        .used { opacity: 0.2; pointer-events: none; }
+        #lock { position: fixed; inset: 0; background: rgba(255,255,255,0.8); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+        #timer { font-size: 3.5rem; font-weight: 900; color: #333; }
     </style>
 </head>
 <body>
     <div id="setupLayer">
-        <h1 style="font-size: 2.5rem; color: #2d3436; margin-bottom: 5px;">🏆 سباق الحروف</h1>
-        <p style="color: #636e72; margin-bottom: 30px;">تحدى ذكاءك وسرعتك!</p>
+        <h1>🏆 سباق الحروف الذهبي</h1>
         <div class="mode-card">
-            <h3 style="margin-top:0">👤 تحدي الكمبيوتر</h3>
-            <button class="btn btn-green" onclick="setupGame('p1', true, 20)">سهل 🟢</button>
-            <button class="btn btn-yellow" onclick="setupGame('p1', true, 15)">متوسط 🟡</button>
-            <button class="btn btn-red" onclick="setupGame('p1', true, 7)">صعب 🔴</button>
+            <h3>👤 ضد الكمبيوتر</h3>
+            <button class="btn btn-green" onclick="setupGame('p1', true, 20)">سهل</button>
+            <button class="btn btn-green" style="background:#f1c40f" onclick="setupGame('p1', true, 15)">متوسط</button>
+            <button class="btn btn-green" style="background:#e74c3c" onclick="setupGame('p1', true, 7)">صعب</button>
         </div>
         <div class="mode-card">
-            <h3 style="margin-top:0">👥 تحدي الأصدقاء</h3>
+            <h3>👥 لاعب ضد لاعب</h3>
             <button class="btn btn-green" onclick="setupGame('p1', false, 15)">لاعب 1</button>
             <button class="btn btn-green" onclick="setupGame('p2', false, 15)">لاعب 2</button>
         </div>
-        <button class="btn" style="background:#dfe6e9; color:#636e72; margin-top:20px;" onclick="forceReset()">🔄 تصفير السيرفر</button>
+        <button class="btn" style="background:#333; color:white; margin-top:20px" onclick="forceReset()">🔄 تصفير النظام</button>
     </div>
 
-    <div id="lock"><h2 style="color:#2d3436">⏳ انتظر دور الخصم...</h2></div>
+    <div id="lock"><h2>⏳ دور الخصم...</h2></div>
 
     <div class="score-bar">
-        <div style="text-align:center">P1 <div id="p1Hearts" class="hearts"></div><b id="p1S" style="font-size:1.5rem">0</b></div>
+        <div style="text-align:center">P1<br><span id="p1Hearts" class="hearts"></span><b id="p1S" style="font-size:1.5rem">0</b></div>
         <div id="timer">15</div>
-        <div style="text-align:center">P2 <div id="p2Hearts" class="hearts"></div><b id="p2S" style="font-size:1.5rem">0</b></div>
+        <div style="text-align:center">P2<br><span id="p2Hearts" class="hearts"></span><b id="p2S" style="font-size:1.5rem">0</b></div>
     </div>
 
-    <h2 id="msg" style="text-align:center; margin: 15px 0; color: #2d3436; font-weight: 600;">اختر حرفاً</h2>
+    <h2 id="msg" style="text-align:center; margin: 10px 0; color: #555;">اختر حرفاً</h2>
 
     <div class="ans-container">
-        <input type="text" id="ansInput" class="ans-box" placeholder="اكتب الإجابة هنا..." disabled autocomplete="off">
-        <button class="btn btn-green" style="padding: 15px 30px;" onclick="submitAns()">✅</button>
+        <input type="text" id="ansInput" class="ans-box" placeholder="الإجابة هنا..." disabled autocomplete="off">
+        <button class="btn btn-green" onclick="submitAns()">✅</button>
     </div>
 
     <div class="grid">
