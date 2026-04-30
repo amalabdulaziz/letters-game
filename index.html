@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>سباق الحروف - الإصدار النهائي المدمج 🏆</title>
+    <title>سباق الحروف - النسخة البيضاء والذهبية 🏆</title>
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.1.1/firebase-app.js";
         import { getDatabase, ref, set, onValue, update, remove, runTransaction } from "https://www.gstatic.com/firebasejs/9.1.1/firebase-database.js";
 
+        // استخدام مسار جديد تماماً لضمان عدم تداخل البيانات القديمة
         const firebaseConfig = {
             apiKey: "AIzaSyCRerGp0Wfj7QoxzMNYnWX0zmtg1NAEBls",
             databaseURL: "https://letters-game-ff80c-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -17,58 +18,50 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const gameRef = ref(db, 'letterGame');
+        const gameRef = ref(db, 'letterGame_V2'); // نسخة ثانية جديدة
 
-        // 1. قاموس التدقيق الذكي
         const dictionary = {
-            "حيوان 🦁": ["أسد", "أرنب", "بطة", "بقر", "تمساح", "ثعلب", "جمل", "حصان", "حمار", "خروف", "دجاج", "ذئب", "زرافة", "سمكة", "صقر", "ضفدع", "غزال", "فيل", "قرد", "كلب", "نمر", "هدهد", "قطة"],
-            "بلاد 🌍": ["ألمانيا", "أمريكا", "أردن", "بحرين", "بلجيكا", "تونس", "تركيا", "جزائر", "دنمارك", "روسيا", "سعودية", "سوريا", "سودان", "صين", "عراق", "عمان", "فرنسا", "فلسطين", "قطر", "كويت", "لبنان", "مصر", "مغرب", "يمن", "إمارات"],
-            "جماد 🚗": ["إبريق", "باب", "بيت", "تلفاز", "ثلاجة", "جدار", "حقيبة", "خزانة", "دفتر", "راديو", "سيارة", "سبورة", "شباك", "طاولة", "قلم", "كتاب", "لوحة", "مكتب", "هاتف", "كرسي"],
-            "أكلة 🍎": ["أرز", "بيتزا", "برغر", "تمر", "تفاح", "جبن", "حلوى", "خبز", "خوخ", "دجاج", "ذرة", "رمان", "زيتون", "سمك", "سلطة", "شوربة", "عسل", "عنب", "فراولة", "فول", "كباب", "لحم", "مانجو", "موز"]
+            "حيوان 🦁": ["أسد", "أرنب", "بطة", "بقر", "تمساح", "جمل", "حصان", "خروف", "دجاج", "فيل", "قرد", "كلب", "نمر", "قطة"],
+            "بلاد 🌍": ["ألمانيا", "أردن", "بحرين", "تونس", "تركيا", "جزائر", "سعودية", "سوريا", "عراق", "عمان", "فرنسا", "فلسطين", "قطر", "كويت", "لبنان", "مصر", "مغرب", "يمن"],
+            "جماد 🚗": ["باب", "بيت", "تلفاز", "ثلاجة", "حقيبة", "خزانة", "دفتر", "سيارة", "طاولة", "قلم", "كتاب", "هاتف", "كرسي"],
+            "أكلة 🍎": ["أرز", "بيتزا", "برغر", "تمر", "تفاح", "جبن", "خبز", "شوربة", "عسل", "عنب", "كباب", "لحم", "موز"]
         };
 
         let myRole = "", audioCtx = null, timerInterval = null;
-        const categories = Object.keys(dictionary);
 
-        // دالة الصوت والموسيقى
-        window.playSound = (freq, type = 'sine', duration = 0.2, vol = 0.1) => {
-            try {
-                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-                o.type = type; o.frequency.value = freq;
-                g.gain.setValueAtTime(vol, audioCtx.currentTime);
-                g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
-                o.connect(g); g.connect(audioCtx.destination);
-                o.start(); o.stop(audioCtx.currentTime + duration);
-            } catch(e){}
+        // دالة تشغيل الأصوات
+        window.pS = (f, t = 'sine', d = 0.2, v = 0.1) => {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.type = t; o.frequency.value = f;
+            g.gain.setValueAtTime(v, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + d);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + d);
         };
 
-        // تشغيل موسيقى هادئة جداً عند البداية
-        function startQuietMusic() {
-            window.playSound(220, 'triangle', 2, 0.05); // نغمة ترحيبية
-        }
-
+        // ميزة الحرف الذهبي والبداية
         window.setupGame = (role, ai, time) => {
             myRole = role;
-            startQuietMusic();
             const chars = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي";
-            const goldenL = chars[Math.floor(Math.random() * chars.length)];
+            const golden = chars[Math.floor(Math.random() * chars.length)];
             
             set(gameRef, { 
                 isAI: ai, status: 'picking', turn: 'p1', timer: time, 
                 used: {}, level: time, p1S: 0, p2S: 0, p1L: 3, p2L: 3, 
-                golden: goldenL, currentL: "" 
+                golden: golden, currentL: "" 
+            }).then(() => {
+                window.pS(400, 'triangle', 0.5); // صوت بداية هادئ
+                document.getElementById('setupLayer').style.display = 'none';
+                listen();
             });
-            document.getElementById('setupLayer').style.display = 'none';
-            listen();
         };
 
         window.pick = (l) => {
-            window.playSound(600, 'sine', 0.1);
+            window.pS(600, 'sine', 0.1);
             update(gameRef, { 
                 currentL: l, status: "answering", [`used/${l}`]: true, timer: 15,
-                cat: categories[Math.floor(Math.random() * categories.length)]
+                cat: Object.keys(dictionary)[Math.floor(Math.random() * 4)]
             });
         };
 
@@ -78,21 +71,18 @@
             onValue(gameRef, (snap) => {
                 const d = snap.val();
                 if (!d) return;
-                
                 const isCorrectChar = val.startsWith(d.currentL);
-                const categoryList = dictionary[d.cat] || [];
-                // التدقيق: هل الكلمة موجودة في قائمة التصنيف؟
-                const isCorrectCat = categoryList.some(item => val.includes(item) || item.includes(val));
+                const isCorrectCat = (dictionary[d.cat] || []).some(item => val.includes(item));
 
                 if (isCorrectChar && isCorrectCat) {
-                    window.playSound(1000, 'sine', 0.2);
+                    window.pS(1000, 'sine', 0.2);
                     const pts = (d.currentL === d.golden) ? 2 : 1;
-                    runTransaction(ref(db, `letterGame/${myRole}S`), s => (s || 0) + pts);
+                    runTransaction(ref(db, `letterGame_V2/${myRole}S`), s => (s || 0) + pts);
                     update(gameRef, { turn: (myRole==='p1'?'p2':'p1'), status:'picking', timer: d.level });
                     input.value = "";
                 } else {
-                    window.playSound(150, 'sawtooth', 0.4);
-                    alert(isCorrectChar ? `خطأ! "${val}" لا نعتبرها ${d.cat}` : `ابدأ بحرف ${d.currentL}`);
+                    window.pS(150, 'sawtooth', 0.5);
+                    alert(`خطأ! إما الحرف غير صحيح أو أن "${val}" لا تنتمي لـ ${d.cat}`);
                 }
             }, {onlyOnce: true});
         };
@@ -101,28 +91,27 @@
             onValue(gameRef, (snap) => {
                 const d = snap.val(); if(!d) return;
                 
-                // تحديث الواجهة
                 document.getElementById('p1S').innerText = d.p1S;
                 document.getElementById('p2S').innerText = d.p2S;
                 document.getElementById('p1Hearts').innerText = "❤️".repeat(d.p1L);
                 document.getElementById('p2Hearts').innerText = "❤️".repeat(d.p2L);
                 document.getElementById('timer').innerText = d.timer;
 
-                // تحديث الحروف واللون الذهبي
+                // تحديث شكل الحروف واللون الذهبي
                 document.querySelectorAll('.letter').forEach(el => {
                     const isUsed = d.used && d.used[el.innerText];
                     el.className = 'letter' + (isUsed ? ' used' : '');
-                    if (el.innerText === d.golden) el.classList.add('golden-border');
+                    if (el.innerText === d.golden) el.classList.add('golden-mode');
                 });
 
                 // صوت تنبيه لآخر 3 ثواني
                 if (d.turn === myRole && d.status === 'answering' && d.timer <= 3 && d.timer > 0) {
-                    window.playSound(1200, 'sine', 0.05, 0.2);
+                    window.pS(1400, 'sine', 0.05, 0.15);
                 }
 
-                // خسارة قلب عند انتهاء الوقت
+                // خسارة قلب وانتقال الدور تلقائياً
                 if (d.timer <= 0 && d.status === 'answering' && d.turn === myRole) {
-                    runTransaction(ref(db, `letterGame/${myRole}L`), l => (l || 1) - 1);
+                    runTransaction(ref(db, `letterGame_V2/${myRole}L`), l => (l || 1) - 1);
                     update(gameRef, { turn: (myRole==='p1'?'p2':'p1'), status:'picking', timer: d.level });
                 }
 
@@ -131,23 +120,20 @@
                     document.getElementById('ansInput').disabled = (d.status === 'picking');
                     document.getElementById('msg').innerText = d.status==='picking' ? "دورك الآن: اختر حرفاً" : d.cat + " بحرف (" + d.currentL + ")";
                     if(d.status === 'answering' && !timerInterval) {
-                        timerInterval = setInterval(() => runTransaction(ref(db, 'letterGame/timer'), t => t > 0 ? t - 1 : 0), 1000);
+                        timerInterval = setInterval(() => runTransaction(ref(db, 'letterGame_V2/timer'), t => t > 0 ? t - 1 : 0), 1000);
                     }
                 } else {
                     document.getElementById('lock').style.display = 'flex';
                     clearInterval(timerInterval); timerInterval = null;
-                    
-                    // منطق الكمبيوتر
                     if (d.isAI && d.turn === 'p2') {
                         setTimeout(() => {
                             if (d.status === 'picking') {
                                 const avail = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي".split('').filter(l => !d.used || !d.used[l]);
-                                if (avail.length > 0) pick(avail[Math.floor(Math.random()*avail.length)]);
+                                if (avail.length > 0) pick(avail[0]);
                             } else {
-                                runTransaction(ref(db, `letterGame/p2S`), s => (s || 0) + 1);
-                                update(gameRef, { turn: 'p1', status: 'picking', timer: d.level });
+                                update(gameRef, { p2S: (d.p2S||0)+1, turn: 'p1', status: 'picking', timer: d.level });
                             }
-                        }, 2500);
+                        }, 2000);
                     }
                 }
             });
@@ -155,63 +141,58 @@
     </script>
 
     <style>
-        /* التنسيق الأبيض النظيف */
-        body { margin: 0; background: #ffffff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; height: 100vh; overflow: hidden; }
-        #setupLayer { position: fixed; inset: 0; background: white; z-index: 5000; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-        .mode-card { background: #fff; padding: 25px; border-radius: 20px; margin: 10px; width: 80%; max-width: 350px; border: 1px solid #eee; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
-        .btn { padding: 12px 20px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; margin: 5px; transition: 0.2s; }
+        /* الخلفية البيضاء الصافية */
+        body { margin: 0; background: #ffffff; font-family: sans-serif; height: 100vh; overflow: hidden; text-align: center; color: #333; }
+        #setupLayer { position: fixed; inset: 0; background: white; z-index: 5000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .mode-card { background: #fff; padding: 20px; border-radius: 20px; border: 1px solid #eee; width: 80%; max-width: 350px; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        .btn { padding: 12px 25px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; margin: 5px; }
         .btn-green { background: #2ecc71; color: white; }
         .btn-blue { background: #3498db; color: white; }
         
-        .score-bar { display: flex; justify-content: space-around; padding: 15px; border-bottom: 2px solid #f9f9f9; align-items: center; background: #fff; }
-        .hearts { color: #e74c3c; font-size: 1.1rem; display: block; height: 20px; margin-bottom: 5px; }
+        .score-bar { display: flex; justify-content: space-around; padding: 15px; border-bottom: 2px solid #f9f9f9; align-items: center; }
+        .hearts { color: #e74c3c; font-size: 1.2rem; display: block; height: 25px; }
+        .ans-container { display: flex; padding: 15px; gap: 10px; }
+        .ans-box { flex-grow: 1; padding: 15px; border-radius: 15px; border: 2px solid #eee; font-size: 1.2rem; text-align: center; }
         
-        .ans-container { display: flex; padding: 15px; gap: 10px; background: #fff; }
-        .ans-box { flex-grow: 1; padding: 15px; border-radius: 15px; border: 2px solid #f0f0f0; font-size: 1.2rem; text-align: center; outline: none; }
-        .ans-box:focus { border-color: #2ecc71; }
-
         .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; padding: 15px; height: 42vh; }
-        .letter { background: #fff; display: flex; align-items: center; justify-content: center; border: 2px solid #f0f0f0; border-radius: 15px; font-size: 1.4rem; font-weight: bold; color: #444; transition: 0.2s; }
+        .letter { background: #fff; display: flex; align-items: center; justify-content: center; border: 2px solid #f5f5f5; border-radius: 15px; font-size: 1.4rem; font-weight: bold; transition: 0.2s; }
         
-        /* تأثير الحرف الذهبي */
-        .golden-border { border: 3px solid #ffd700 !important; background: #fffcf0 !important; color: #b8860b !important; box-shadow: 0 0 12px rgba(255, 215, 0, 0.4); animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
-
+        /* الحرف الذهبي */
+        .golden-mode { border: 3px solid #ffd700 !important; background: #fffdf0 !important; color: #b8860b !important; box-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
+        
         .used { opacity: 0.1; pointer-events: none; }
-        #lock { position: fixed; inset: 0; background: rgba(255,255,255,0.8); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
-        #timer { font-size: 3rem; font-weight: 900; color: #333; }
-        h1, h2, h3 { color: #2d3436; margin: 10px 0; }
+        #lock { position: fixed; inset: 0; background: rgba(255,255,255,0.8); z-index: 1000; display: none; align-items: center; justify-content: center; }
+        #timer { font-size: 3.5rem; font-weight: 900; }
     </style>
 </head>
 <body>
-    <!-- شاشة البداية مع الخيارات -->
     <div id="setupLayer">
-        <h1>🏁 سباق الحروف</h1>
+        <h1>🏁 سباق الحروف الجديد</h1>
         <div class="mode-card">
-            <h3>🤖 العب ضد الذكاء</h3>
-            <button class="btn btn-green" onclick="setupGame('p1', true, 15)">ابدأ التحدي</button>
+            <h3>👤 ضد الكمبيوتر</h3>
+            <button class="btn btn-green" onclick="setupGame('p1', true, 15)">ابدأ اللعب</button>
         </div>
         <div class="mode-card">
             <h3>👥 لاعب ضد لاعب</h3>
             <button class="btn btn-blue" onclick="setupGame('p1', false, 15)">لاعب 1</button>
             <button class="btn btn-blue" onclick="setupGame('p2', false, 15)">لاعب 2</button>
         </div>
-        <button class="btn" style="background:#333; color:white; margin-top:20px" onclick="remove(ref(getDatabase(), 'letterGame')).then(() => location.reload())">🔄 تصفير السيرفر (ضروري أول مرة)</button>
+        <button class="btn" style="background:#333; color:white;" onclick="remove(ref(getDatabase(), 'letterGame_V2')).then(() => location.reload())">🔄 تصفير النظام الجديد</button>
     </div>
 
-    <div id="lock"><h2>⏳ انتظر دور الخصم...</h2></div>
+    <div id="lock"><h2>⏳ دور الخصم...</h2></div>
 
     <div class="score-bar">
-        <div style="text-align:center">P1<br><span id="p1Hearts" class="hearts"></span><b id="p1S" style="font-size:1.4rem">0</b></div>
+        <div>P1<span id="p1Hearts" class="hearts"></span><b id="p1S" style="font-size:1.5rem">0</b></div>
         <div id="timer">15</div>
-        <div style="text-align:center">P2<br><span id="p2Hearts" class="hearts"></span><b id="p2S" style="font-size:1.4rem">0</b></div>
+        <div>P2<span id="p2Hearts" class="hearts"></span><b id="p2S" style="font-size:1.5rem">0</b></div>
     </div>
 
-    <h2 id="msg" style="text-align:center; padding: 10px;">اختر حرفاً</h2>
+    <h2 id="msg">اختر حرفاً</h2>
 
     <div class="ans-container">
         <input type="text" id="ansInput" class="ans-box" placeholder="اكتب الإجابة..." disabled autocomplete="off">
-        <button class="btn btn-green" style="padding:15px 25px" onclick="submitAns()">✅</button>
+        <button class="btn btn-green" onclick="submitAns()">✅</button>
     </div>
 
     <div class="grid">
