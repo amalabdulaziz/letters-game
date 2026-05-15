@@ -1,206 +1,667 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>سباق الحروف - النسخة البيضاء والذهبية 🏆</title>
-    
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.1.1/firebase-app.js";
-        import { getDatabase, ref, set, onValue, update, remove, runTransaction } from "https://www.gstatic.com/firebasejs/9.1.1/firebase-database.js";
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>سباق الحروف المطور 🏆</title>
 
-        // استخدام مسار جديد تماماً لضمان عدم تداخل البيانات القديمة
-        const firebaseConfig = {
-            apiKey: "AIzaSyCRerGp0Wfj7QoxzMNYnWX0zmtg1NAEBls",
-            databaseURL: "https://letters-game-ff80c-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "letters-game-ff80c"
-        };
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.1.1/firebase-app.js";
+import {
+  getDatabase,
+  ref,
+  set,
+  onValue,
+  update,
+  remove,
+  runTransaction,
+  get
+} from "https://www.gstatic.com/firebasejs/9.1.1/firebase-database.js";
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        const gameRef = ref(db, 'letterGame_V2'); // نسخة ثانية جديدة
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  databaseURL: "YOUR_DATABASE_URL",
+  projectId: "YOUR_PROJECT_ID"
+};
 
-        const dictionary = {
-            "حيوان 🦁": ["أسد", "أرنب", "بطة", "بقر", "تمساح", "جمل", "حصان", "خروف", "دجاج", "فيل", "قرد", "كلب", "نمر", "قطة"],
-            "بلاد 🌍": ["ألمانيا", "أردن", "بحرين", "تونس", "تركيا", "جزائر", "سعودية", "سوريا", "عراق", "عمان", "فرنسا", "فلسطين", "قطر", "كويت", "لبنان", "مصر", "مغرب", "يمن"],
-            "جماد 🚗": ["باب", "بيت", "تلفاز", "ثلاجة", "حقيبة", "خزانة", "دفتر", "سيارة", "طاولة", "قلم", "كتاب", "هاتف", "كرسي"],
-            "أكلة 🍎": ["أرز", "بيتزا", "برغر", "تمر", "تفاح", "جبن", "خبز", "شوربة", "عسل", "عنب", "كباب", "لحم", "موز"]
-        };
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-        let myRole = "", audioCtx = null, timerInterval = null;
+let gameRef = null;
+let myRole = "";
+let timerInterval = null;
+let audioCtx = null;
 
-        // دالة تشغيل الأصوات
-        window.pS = (f, t = 'sine', d = 0.2, v = 0.1) => {
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-            o.type = t; o.frequency.value = f;
-            g.gain.setValueAtTime(v, audioCtx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + d);
-            o.connect(g); g.connect(audioCtx.destination);
-            o.start(); o.stop(audioCtx.currentTime + d);
-        };
+const chars = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي";
 
-        // ميزة الحرف الذهبي والبداية
-        window.setupGame = (role, ai, time) => {
-            myRole = role;
-            const chars = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي";
-            const golden = chars[Math.floor(Math.random() * chars.length)];
-            
-            set(gameRef, { 
-                isAI: ai, status: 'picking', turn: 'p1', timer: time, 
-                used: {}, level: time, p1S: 0, p2S: 0, p1L: 3, p2L: 3, 
-                golden: golden, currentL: "" 
-            }).then(() => {
-                window.pS(400, 'triangle', 0.5); // صوت بداية هادئ
-                document.getElementById('setupLayer').style.display = 'none';
-                listen();
-            });
-        };
+const dictionary = {
+  "حيوان 🦁": ["أسد","أرنب","بطة","بقر","تمساح","جمل","حصان","خروف","دجاج","فيل","قرد","كلب","نمر","قطة"],
+  "بلاد 🌍": ["ألمانيا","أردن","بحرين","تونس","تركيا","جزائر","سعودية","سوريا","عراق","عمان","فرنسا","فلسطين","قطر","كويت","لبنان","مصر","مغرب","يمن"],
+  "جماد 🚗": ["باب","بيت","تلفاز","ثلاجة","حقيبة","خزانة","دفتر","سيارة","طاولة","قلم","كتاب","هاتف","كرسي"],
+  "أكلة 🍎": ["أرز","بيتزا","برغر","تمر","تفاح","جبن","خبز","شوربة","عسل","عنب","كباب","لحم","موز"]
+};
 
-        window.pick = (l) => {
-            window.pS(600, 'sine', 0.1);
-            update(gameRef, { 
-                currentL: l, status: "answering", [`used/${l}`]: true, timer: 15,
-                cat: Object.keys(dictionary)[Math.floor(Math.random() * 4)]
-            });
-        };
+window.pS = (f, t='sine', d=0.2, v=0.1) => {
+  if(!audioCtx)
+    audioCtx = new(window.AudioContext || window.webkitAudioContext)();
 
-        window.submitAns = () => {
-            const input = document.getElementById('ansInput');
-            const val = input.value.trim();
-            onValue(gameRef, (snap) => {
-                const d = snap.val();
-                if (!d) return;
-                const isCorrectChar = val.startsWith(d.currentL);
-                const isCorrectCat = (dictionary[d.cat] || []).some(item => val.includes(item));
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
 
-                if (isCorrectChar && isCorrectCat) {
-                    window.pS(1000, 'sine', 0.2);
-                    const pts = (d.currentL === d.golden) ? 2 : 1;
-                    runTransaction(ref(db, `letterGame_V2/${myRole}S`), s => (s || 0) + pts);
-                    update(gameRef, { turn: (myRole==='p1'?'p2':'p1'), status:'picking', timer: d.level });
-                    input.value = "";
-                } else {
-                    window.pS(150, 'sawtooth', 0.5);
-                    alert(`خطأ! إما الحرف غير صحيح أو أن "${val}" لا تنتمي لـ ${d.cat}`);
-                }
-            }, {onlyOnce: true});
-        };
+  o.type = t;
+  o.frequency.value = f;
 
-        function listen() {
-            onValue(gameRef, (snap) => {
-                const d = snap.val(); if(!d) return;
-                
-                document.getElementById('p1S').innerText = d.p1S;
-                document.getElementById('p2S').innerText = d.p2S;
-                document.getElementById('p1Hearts').innerText = "❤️".repeat(d.p1L);
-                document.getElementById('p2Hearts').innerText = "❤️".repeat(d.p2L);
-                document.getElementById('timer').innerText = d.timer;
+  g.gain.setValueAtTime(v, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + d);
 
-                // تحديث شكل الحروف واللون الذهبي
-                document.querySelectorAll('.letter').forEach(el => {
-                    const isUsed = d.used && d.used[el.innerText];
-                    el.className = 'letter' + (isUsed ? ' used' : '');
-                    if (el.innerText === d.golden) el.classList.add('golden-mode');
-                });
+  o.connect(g);
+  g.connect(audioCtx.destination);
 
-                // صوت تنبيه لآخر 3 ثواني
-                if (d.turn === myRole && d.status === 'answering' && d.timer <= 3 && d.timer > 0) {
-                    window.pS(1400, 'sine', 0.05, 0.15);
-                }
+  o.start();
+  o.stop(audioCtx.currentTime + d);
+};
 
-                // خسارة قلب وانتقال الدور تلقائياً
-                if (d.timer <= 0 && d.status === 'answering' && d.turn === myRole) {
-                    runTransaction(ref(db, `letterGame_V2/${myRole}L`), l => (l || 1) - 1);
-                    update(gameRef, { turn: (myRole==='p1'?'p2':'p1'), status:'picking', timer: d.level });
-                }
+function generateRoomCode() {
+  return Math.random().toString(36).substring(2,6).toUpperCase();
+}
 
-                if(d.turn === myRole) {
-                    document.getElementById('lock').style.display = 'none';
-                    document.getElementById('ansInput').disabled = (d.status === 'picking');
-                    document.getElementById('msg').innerText = d.status==='picking' ? "دورك الآن: اختر حرفاً" : d.cat + " بحرف (" + d.currentL + ")";
-                    if(d.status === 'answering' && !timerInterval) {
-                        timerInterval = setInterval(() => runTransaction(ref(db, 'letterGame_V2/timer'), t => t > 0 ? t - 1 : 0), 1000);
-                    }
-                } else {
-                    document.getElementById('lock').style.display = 'flex';
-                    clearInterval(timerInterval); timerInterval = null;
-                    if (d.isAI && d.turn === 'p2') {
-                        setTimeout(() => {
-                            if (d.status === 'picking') {
-                                const avail = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي".split('').filter(l => !d.used || !d.used[l]);
-                                if (avail.length > 0) pick(avail[0]);
-                            } else {
-                                update(gameRef, { p2S: (d.p2S||0)+1, turn: 'p1', status: 'picking', timer: d.level });
-                            }
-                        }, 2000);
-                    }
-                }
-            });
-        }
-    </script>
+window.createRoom = async () => {
 
-    <style>
-        /* الخلفية البيضاء الصافية */
-        body { margin: 0; background: #ffffff; font-family: sans-serif; height: 100vh; overflow: hidden; text-align: center; color: #333; }
-        #setupLayer { position: fixed; inset: 0; background: white; z-index: 5000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .mode-card { background: #fff; padding: 20px; border-radius: 20px; border: 1px solid #eee; width: 80%; max-width: 350px; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
-        .btn { padding: 12px 25px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; margin: 5px; }
-        .btn-green { background: #2ecc71; color: white; }
-        .btn-blue { background: #3498db; color: white; }
-        
-        .score-bar { display: flex; justify-content: space-around; padding: 15px; border-bottom: 2px solid #f9f9f9; align-items: center; }
-        .hearts { color: #e74c3c; font-size: 1.2rem; display: block; height: 25px; }
-        .ans-container { display: flex; padding: 15px; gap: 10px; }
-        .ans-box { flex-grow: 1; padding: 15px; border-radius: 15px; border: 2px solid #eee; font-size: 1.2rem; text-align: center; }
-        
-        .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; padding: 15px; height: 42vh; }
-        .letter { background: #fff; display: flex; align-items: center; justify-content: center; border: 2px solid #f5f5f5; border-radius: 15px; font-size: 1.4rem; font-weight: bold; transition: 0.2s; }
-        
-        /* الحرف الذهبي */
-        .golden-mode { border: 3px solid #ffd700 !important; background: #fffdf0 !important; color: #b8860b !important; box-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
-        
-        .used { opacity: 0.1; pointer-events: none; }
-        #lock { position: fixed; inset: 0; background: rgba(255,255,255,0.8); z-index: 1000; display: none; align-items: center; justify-content: center; }
-        #timer { font-size: 3.5rem; font-weight: 900; }
-    </style>
+  const roomCode = generateRoomCode();
+
+  document.getElementById("roomCodeText").innerText = roomCode;
+
+  gameRef = ref(db, "rooms/" + roomCode);
+
+  const golden = chars[Math.floor(Math.random() * chars.length)];
+
+  await set(gameRef, {
+    status: "picking",
+    turn: "p1",
+    timer: 15,
+    level: 15,
+
+    p1S: 0,
+    p2S: 0,
+
+    p1L: 3,
+    p2L: 3,
+
+    used: {},
+    answers: {},
+
+    golden: golden,
+    currentL: "",
+
+    winner: ""
+  });
+
+  myRole = "p1";
+
+  document.getElementById("setupLayer").style.display = "none";
+
+  listen();
+
+  pS(500, 'triangle', 0.4);
+};
+
+window.joinRoom = async () => {
+
+  const code = document.getElementById("roomInput").value.trim().toUpperCase();
+
+  if(!code) return alert("اكتب كود الغرفة");
+
+  gameRef = ref(db, "rooms/" + code);
+
+  const snap = await get(gameRef);
+
+  if(!snap.exists()) {
+    alert("الغرفة غير موجودة");
+    return;
+  }
+
+  myRole = "p2";
+
+  document.getElementById("setupLayer").style.display = "none";
+
+  listen();
+
+  pS(700, 'sine', 0.2);
+};
+
+window.pick = async (l) => {
+
+  const snap = await get(gameRef);
+  const d = snap.val();
+
+  if(d.used && d.used[l]) return;
+
+  pS(800, 'triangle', 0.1);
+
+  update(gameRef, {
+    currentL: l,
+    status: "answering",
+    timer: 15,
+
+    cat: Object.keys(dictionary)[
+      Math.floor(Math.random() * 4)
+    ],
+
+    [`used/${l}`]: true
+  });
+};
+
+window.submitAns = async () => {
+
+  const input = document.getElementById("ansInput");
+
+  const val = input.value.trim();
+
+  if(!val) return;
+
+  const snap = await get(gameRef);
+
+  const d = snap.val();
+
+  if(!d) return;
+
+  const alreadyUsed = d.answers && d.answers[val];
+
+  if(alreadyUsed) {
+    alert("تم استخدام الكلمة مسبقاً");
+    return;
+  }
+
+  const correctWord =
+    (dictionary[d.cat] || []).includes(val);
+
+  const correctLetter =
+    val.startsWith(d.currentL);
+
+  if(correctWord && correctLetter) {
+
+    input.classList.remove("shake");
+
+    pS(1000, 'sine', 0.2);
+
+    const pts =
+      d.currentL === d.golden ? 2 : 1;
+
+    await runTransaction(
+      ref(db, `rooms/${document.getElementById("roomCodeText").innerText}/${myRole}S`),
+      s => (s || 0) + pts
+    );
+
+    update(gameRef, {
+      turn: myRole === "p1" ? "p2" : "p1",
+      status: "picking",
+      timer: d.level,
+
+      [`answers/${val}`]: true
+    });
+
+    input.value = "";
+
+  } else {
+
+    input.classList.add("shake");
+
+    pS(150, 'sawtooth', 0.5);
+
+    setTimeout(() => {
+      input.classList.remove("shake");
+    }, 400);
+
+    alert("إجابة خاطئة ❌");
+  }
+};
+
+function finishGame(winner) {
+
+  document.getElementById("winnerScreen").style.display = "flex";
+
+  document.getElementById("winnerText").innerText =
+    winner === myRole ? "🏆 لقد فزت!" : "😢 لقد خسرت";
+
+  clearInterval(timerInterval);
+
+  pS(1200, 'triangle', 1, 0.2);
+}
+
+function listen() {
+
+  onValue(gameRef, (snap) => {
+
+    const d = snap.val();
+
+    if(!d) return;
+
+    document.getElementById("p1S").innerText = d.p1S;
+    document.getElementById("p2S").innerText = d.p2S;
+
+    document.getElementById("p1Hearts").innerText =
+      "❤️".repeat(d.p1L);
+
+    document.getElementById("p2Hearts").innerText =
+      "❤️".repeat(d.p2L);
+
+    document.getElementById("timer").innerText = d.timer;
+
+    document.getElementById("msg").innerText =
+      d.status === "picking"
+      ? "اختر حرفاً"
+      : `${d.cat} بحرف (${d.currentL})`;
+
+    if(d.p1L <= 0 && !d.winner) {
+      update(gameRef, { winner: "p2" });
+    }
+
+    if(d.p2L <= 0 && !d.winner) {
+      update(gameRef, { winner: "p1" });
+    }
+
+    if(d.winner) {
+      finishGame(d.winner);
+    }
+
+    document.querySelectorAll(".letter").forEach(el => {
+
+      const letter = el.innerText;
+
+      const isUsed =
+        d.used && d.used[letter];
+
+      el.className = "letter";
+
+      if(isUsed)
+        el.classList.add("used");
+
+      if(letter === d.golden)
+        el.classList.add("golden-mode");
+    });
+
+    if(
+      d.turn === myRole &&
+      d.status === "answering" &&
+      d.timer <= 3 &&
+      d.timer > 0
+    ) {
+      pS(1400, 'sine', 0.05, 0.15);
+    }
+
+    if(
+      d.timer <= 0 &&
+      d.status === "answering" &&
+      d.turn === myRole
+    ) {
+
+      runTransaction(
+        ref(db, `rooms/${document.getElementById("roomCodeText").innerText}/${myRole}L`),
+        l => (l || 1) - 1
+      );
+
+      update(gameRef, {
+        turn: myRole === "p1" ? "p2" : "p1",
+        status: "picking",
+        timer: d.level
+      });
+    }
+
+    if(d.turn === myRole) {
+
+      document.getElementById("lock").style.display = "none";
+
+      document.getElementById("ansInput").disabled =
+        d.status === "picking";
+
+      if(d.status === "answering" && !timerInterval) {
+
+        timerInterval = setInterval(() => {
+
+          runTransaction(
+            ref(db, `rooms/${document.getElementById("roomCodeText").innerText}/timer`),
+            t => t > 0 ? t - 1 : 0
+          );
+
+        }, 1000);
+      }
+
+    } else {
+
+      document.getElementById("lock").style.display = "flex";
+
+      clearInterval(timerInterval);
+
+      timerInterval = null;
+    }
+
+  });
+}
+
+window.resetGame = async () => {
+
+  const room =
+    document.getElementById("roomCodeText").innerText;
+
+  if(!room) return;
+
+  await remove(ref(db, "rooms/" + room));
+
+  location.reload();
+};
+</script>
+
+<style>
+
+body{
+  margin:0;
+  background:#fff;
+  font-family:sans-serif;
+  overflow:hidden;
+  color:#333;
+  text-align:center;
+}
+
+#setupLayer{
+  position:fixed;
+  inset:0;
+  background:white;
+  z-index:5000;
+
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+}
+
+.mode-card{
+  background:#fff;
+  border:1px solid #eee;
+  border-radius:20px;
+  width:85%;
+  max-width:350px;
+
+  padding:20px;
+  margin-bottom:15px;
+
+  box-shadow:0 5px 15px rgba(0,0,0,0.05);
+}
+
+.btn{
+  padding:12px 22px;
+  border:none;
+  border-radius:14px;
+  cursor:pointer;
+  font-weight:bold;
+  transition:0.2s;
+}
+
+.btn:hover{
+  transform:scale(1.05);
+}
+
+.btn-green{
+  background:#2ecc71;
+  color:white;
+}
+
+.btn-blue{
+  background:#3498db;
+  color:white;
+}
+
+.score-bar{
+  display:flex;
+  justify-content:space-around;
+  align-items:center;
+
+  padding:15px;
+
+  border-bottom:2px solid #f8f8f8;
+}
+
+.hearts{
+  color:#e74c3c;
+  display:block;
+  height:25px;
+}
+
+#timer{
+  font-size:3.2rem;
+  font-weight:900;
+}
+
+.ans-container{
+  display:flex;
+  gap:10px;
+  padding:15px;
+}
+
+.ans-box{
+  flex-grow:1;
+
+  border:2px solid #eee;
+  border-radius:15px;
+
+  padding:15px;
+
+  font-size:1.2rem;
+  text-align:center;
+
+  transition:0.2s;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+
+  gap:10px;
+  padding:15px;
+
+  height:42vh;
+}
+
+.letter{
+  background:#fff;
+
+  border:2px solid #f5f5f5;
+  border-radius:15px;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  font-size:1.4rem;
+  font-weight:bold;
+
+  transition:0.25s;
+}
+
+.letter:hover{
+  transform:scale(1.08);
+}
+
+.used{
+  opacity:0.1;
+  transform:scale(0.7);
+  pointer-events:none;
+}
+
+.golden-mode{
+  border:3px solid #ffd700 !important;
+  background:#fffdf0 !important;
+  color:#b8860b !important;
+
+  box-shadow:0 0 15px rgba(255,215,0,0.5);
+}
+
+#lock{
+  position:fixed;
+  inset:0;
+
+  background:rgba(255,255,255,0.7);
+
+  backdrop-filter:blur(4px);
+
+  display:none;
+
+  align-items:center;
+  justify-content:center;
+
+  z-index:1000;
+}
+
+@keyframes shake{
+
+  0%{transform:translateX(0);}
+  25%{transform:translateX(-5px);}
+  50%{transform:translateX(5px);}
+  75%{transform:translateX(-5px);}
+  100%{transform:translateX(0);}
+}
+
+.shake{
+  animation:shake 0.3s;
+}
+
+#winnerScreen{
+  position:fixed;
+  inset:0;
+
+  background:rgba(255,255,255,0.95);
+
+  z-index:9999;
+
+  display:none;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+}
+
+#winnerText{
+  font-size:3rem;
+  margin-bottom:20px;
+}
+
+.room-box{
+  background:#fafafa;
+  padding:12px;
+  border-radius:12px;
+  margin-bottom:15px;
+}
+
+</style>
 </head>
+
 <body>
-    <div id="setupLayer">
-        <h1>🏁 سباق الحروف الجديد</h1>
-        <div class="mode-card">
-            <h3>👤 ضد الكمبيوتر</h3>
-            <button class="btn btn-green" onclick="setupGame('p1', true, 15)">ابدأ اللعب</button>
-        </div>
-        <div class="mode-card">
-            <h3>👥 لاعب ضد لاعب</h3>
-            <button class="btn btn-blue" onclick="setupGame('p1', false, 15)">لاعب 1</button>
-            <button class="btn btn-blue" onclick="setupGame('p2', false, 15)">لاعب 2</button>
-        </div>
-        <button class="btn" style="background:#333; color:white;" onclick="remove(ref(getDatabase(), 'letterGame_V2')).then(() => location.reload())">🔄 تصفير النظام الجديد</button>
+
+<div id="setupLayer">
+
+  <h1>🏁 سباق الحروف</h1>
+
+  <div class="mode-card">
+
+    <h3>🎮 إنشاء غرفة</h3>
+
+    <button class="btn btn-green" onclick="createRoom()">
+      إنشاء غرفة
+    </button>
+
+    <div class="room-box">
+      كود الغرفة:
+      <b id="roomCodeText">----</b>
     </div>
 
-    <div id="lock"><h2>⏳ دور الخصم...</h2></div>
+  </div>
 
-    <div class="score-bar">
-        <div>P1<span id="p1Hearts" class="hearts"></span><b id="p1S" style="font-size:1.5rem">0</b></div>
-        <div id="timer">15</div>
-        <div>P2<span id="p2Hearts" class="hearts"></span><b id="p2S" style="font-size:1.5rem">0</b></div>
+  <div class="mode-card">
+
+    <h3>🚪 دخول غرفة</h3>
+
+    <input
+      id="roomInput"
+      class="ans-box"
+      placeholder="اكتب الكود"
+    />
+
+    <br><br>
+
+    <button class="btn btn-blue" onclick="joinRoom()">
+      دخول
+    </button>
+
+  </div>
+
+</div>
+
+<div id="winnerScreen">
+
+  <div id="winnerText"></div>
+
+  <button class="btn btn-green" onclick="resetGame()">
+    🔄 لعب مرة أخرى
+  </button>
+
+</div>
+
+<div id="lock">
+  <h2>⏳ دور الخصم...</h2>
+</div>
+
+<div class="score-bar">
+
+  <div>
+    P1
+    <span id="p1Hearts" class="hearts"></span>
+    <b id="p1S">0</b>
+  </div>
+
+  <div id="timer">15</div>
+
+  <div>
+    P2
+    <span id="p2Hearts" class="hearts"></span>
+    <b id="p2S">0</b>
+  </div>
+
+</div>
+
+<h2 id="msg">اختر حرفاً</h2>
+
+<div class="ans-container">
+
+  <input
+    type="text"
+    id="ansInput"
+    class="ans-box"
+    placeholder="اكتب الإجابة..."
+    disabled
+    autocomplete="off"
+  >
+
+  <button class="btn btn-green" onclick="submitAns()">
+    ✅
+  </button>
+
+</div>
+
+<div class="grid">
+
+<script>
+
+chars.split('').forEach(l => {
+
+  document.write(`
+    <div class="letter" onclick="pick('${l}')">
+      ${l}
     </div>
+  `);
 
-    <h2 id="msg">اختر حرفاً</h2>
+});
 
-    <div class="ans-container">
-        <input type="text" id="ansInput" class="ans-box" placeholder="اكتب الإجابة..." disabled autocomplete="off">
-        <button class="btn btn-green" onclick="submitAns()">✅</button>
-    </div>
+</script>
 
-    <div class="grid">
-        <script>
-            "أبتثجحخدذرزسشصضطظعغفقكلمنهوي".split('').forEach(l => {
-                document.write(`<div class="letter" onclick="pick('${l}')">${l}</div>`);
-            });
-        </script>
-    </div>
+</div>
+
 </body>
 </html>
