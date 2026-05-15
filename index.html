@@ -1,553 +1,171 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
+
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-<title>سباق الحروف المطور 🏆</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.1.1/firebase-app.js";
-import {
-  getDatabase,
-  ref,
-  set,
-  onValue,
-  update,
-  remove,
-  runTransaction,
-  get
-} from "https://www.gstatic.com/firebasejs/9.1.1/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  databaseURL: "YOUR_DATABASE_URL",
-  projectId: "YOUR_PROJECT_ID"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-let gameRef = null;
-let myRole = "";
-let timerInterval = null;
-let audioCtx = null;
-
-const chars = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي";
-
-const dictionary = {
-  "حيوان 🦁": ["أسد","أرنب","بطة","بقر","تمساح","جمل","حصان","خروف","دجاج","فيل","قرد","كلب","نمر","قطة"],
-  "بلاد 🌍": ["ألمانيا","أردن","بحرين","تونس","تركيا","جزائر","سعودية","سوريا","عراق","عمان","فرنسا","فلسطين","قطر","كويت","لبنان","مصر","مغرب","يمن"],
-  "جماد 🚗": ["باب","بيت","تلفاز","ثلاجة","حقيبة","خزانة","دفتر","سيارة","طاولة","قلم","كتاب","هاتف","كرسي"],
-  "أكلة 🍎": ["أرز","بيتزا","برغر","تمر","تفاح","جبن","خبز","شوربة","عسل","عنب","كباب","لحم","موز"]
-};
-
-window.pS = (f, t='sine', d=0.2, v=0.1) => {
-  if(!audioCtx)
-    audioCtx = new(window.AudioContext || window.webkitAudioContext)();
-
-  const o = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-
-  o.type = t;
-  o.frequency.value = f;
-
-  g.gain.setValueAtTime(v, audioCtx.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + d);
-
-  o.connect(g);
-  g.connect(audioCtx.destination);
-
-  o.start();
-  o.stop(audioCtx.currentTime + d);
-};
-
-function generateRoomCode() {
-  return Math.random().toString(36).substring(2,6).toUpperCase();
-}
-
-window.createRoom = async () => {
-
-  const roomCode = generateRoomCode();
-
-  document.getElementById("roomCodeText").innerText = roomCode;
-
-  gameRef = ref(db, "rooms/" + roomCode);
-
-  const golden = chars[Math.floor(Math.random() * chars.length)];
-
-  await set(gameRef, {
-    status: "picking",
-    turn: "p1",
-    timer: 15,
-    level: 15,
-
-    p1S: 0,
-    p2S: 0,
-
-    p1L: 3,
-    p2L: 3,
-
-    used: {},
-    answers: {},
-
-    golden: golden,
-    currentL: "",
-
-    winner: ""
-  });
-
-  myRole = "p1";
-
-  document.getElementById("setupLayer").style.display = "none";
-
-  listen();
-
-  pS(500, 'triangle', 0.4);
-};
-
-window.joinRoom = async () => {
-
-  const code = document.getElementById("roomInput").value.trim().toUpperCase();
-
-  if(!code) return alert("اكتب كود الغرفة");
-
-  gameRef = ref(db, "rooms/" + code);
-
-  const snap = await get(gameRef);
-
-  if(!snap.exists()) {
-    alert("الغرفة غير موجودة");
-    return;
-  }
-
-  myRole = "p2";
-
-  document.getElementById("setupLayer").style.display = "none";
-
-  listen();
-
-  pS(700, 'sine', 0.2);
-};
-
-window.pick = async (l) => {
-
-  const snap = await get(gameRef);
-  const d = snap.val();
-
-  if(d.used && d.used[l]) return;
-
-  pS(800, 'triangle', 0.1);
-
-  update(gameRef, {
-    currentL: l,
-    status: "answering",
-    timer: 15,
-
-    cat: Object.keys(dictionary)[
-      Math.floor(Math.random() * 4)
-    ],
-
-    [`used/${l}`]: true
-  });
-};
-
-window.submitAns = async () => {
-
-  const input = document.getElementById("ansInput");
-
-  const val = input.value.trim();
-
-  if(!val) return;
-
-  const snap = await get(gameRef);
-
-  const d = snap.val();
-
-  if(!d) return;
-
-  const alreadyUsed = d.answers && d.answers[val];
-
-  if(alreadyUsed) {
-    alert("تم استخدام الكلمة مسبقاً");
-    return;
-  }
-
-  const correctWord =
-    (dictionary[d.cat] || []).includes(val);
-
-  const correctLetter =
-    val.startsWith(d.currentL);
-
-  if(correctWord && correctLetter) {
-
-    input.classList.remove("shake");
-
-    pS(1000, 'sine', 0.2);
-
-    const pts =
-      d.currentL === d.golden ? 2 : 1;
-
-    await runTransaction(
-      ref(db, `rooms/${document.getElementById("roomCodeText").innerText}/${myRole}S`),
-      s => (s || 0) + pts
-    );
-
-    update(gameRef, {
-      turn: myRole === "p1" ? "p2" : "p1",
-      status: "picking",
-      timer: d.level,
-
-      [`answers/${val}`]: true
-    });
-
-    input.value = "";
-
-  } else {
-
-    input.classList.add("shake");
-
-    pS(150, 'sawtooth', 0.5);
-
-    setTimeout(() => {
-      input.classList.remove("shake");
-    }, 400);
-
-    alert("إجابة خاطئة ❌");
-  }
-};
-
-function finishGame(winner) {
-
-  document.getElementById("winnerScreen").style.display = "flex";
-
-  document.getElementById("winnerText").innerText =
-    winner === myRole ? "🏆 لقد فزت!" : "😢 لقد خسرت";
-
-  clearInterval(timerInterval);
-
-  pS(1200, 'triangle', 1, 0.2);
-}
-
-function listen() {
-
-  onValue(gameRef, (snap) => {
-
-    const d = snap.val();
-
-    if(!d) return;
-
-    document.getElementById("p1S").innerText = d.p1S;
-    document.getElementById("p2S").innerText = d.p2S;
-
-    document.getElementById("p1Hearts").innerText =
-      "❤️".repeat(d.p1L);
-
-    document.getElementById("p2Hearts").innerText =
-      "❤️".repeat(d.p2L);
-
-    document.getElementById("timer").innerText = d.timer;
-
-    document.getElementById("msg").innerText =
-      d.status === "picking"
-      ? "اختر حرفاً"
-      : `${d.cat} بحرف (${d.currentL})`;
-
-    if(d.p1L <= 0 && !d.winner) {
-      update(gameRef, { winner: "p2" });
-    }
-
-    if(d.p2L <= 0 && !d.winner) {
-      update(gameRef, { winner: "p1" });
-    }
-
-    if(d.winner) {
-      finishGame(d.winner);
-    }
-
-    document.querySelectorAll(".letter").forEach(el => {
-
-      const letter = el.innerText;
-
-      const isUsed =
-        d.used && d.used[letter];
-
-      el.className = "letter";
-
-      if(isUsed)
-        el.classList.add("used");
-
-      if(letter === d.golden)
-        el.classList.add("golden-mode");
-    });
-
-    if(
-      d.turn === myRole &&
-      d.status === "answering" &&
-      d.timer <= 3 &&
-      d.timer > 0
-    ) {
-      pS(1400, 'sine', 0.05, 0.15);
-    }
-
-    if(
-      d.timer <= 0 &&
-      d.status === "answering" &&
-      d.turn === myRole
-    ) {
-
-      runTransaction(
-        ref(db, `rooms/${document.getElementById("roomCodeText").innerText}/${myRole}L`),
-        l => (l || 1) - 1
-      );
-
-      update(gameRef, {
-        turn: myRole === "p1" ? "p2" : "p1",
-        status: "picking",
-        timer: d.level
-      });
-    }
-
-    if(d.turn === myRole) {
-
-      document.getElementById("lock").style.display = "none";
-
-      document.getElementById("ansInput").disabled =
-        d.status === "picking";
-
-      if(d.status === "answering" && !timerInterval) {
-
-        timerInterval = setInterval(() => {
-
-          runTransaction(
-            ref(db, `rooms/${document.getElementById("roomCodeText").innerText}/timer`),
-            t => t > 0 ? t - 1 : 0
-          );
-
-        }, 1000);
-      }
-
-    } else {
-
-      document.getElementById("lock").style.display = "flex";
-
-      clearInterval(timerInterval);
-
-      timerInterval = null;
-    }
-
-  });
-}
-
-window.resetGame = async () => {
-
-  const room =
-    document.getElementById("roomCodeText").innerText;
-
-  if(!room) return;
-
-  await remove(ref(db, "rooms/" + room));
-
-  location.reload();
-};
-</script>
+<title>سباق الحروف 🏆</title>
 
 <style>
 
 body{
-  margin:0;
-  background:#fff;
-  font-family:sans-serif;
-  overflow:hidden;
-  color:#333;
-  text-align:center;
-}
-
-#setupLayer{
-  position:fixed;
-  inset:0;
-  background:white;
-  z-index:5000;
-
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-}
-
-.mode-card{
-  background:#fff;
-  border:1px solid #eee;
-  border-radius:20px;
-  width:85%;
-  max-width:350px;
-
-  padding:20px;
-  margin-bottom:15px;
-
-  box-shadow:0 5px 15px rgba(0,0,0,0.05);
-}
-
-.btn{
-  padding:12px 22px;
-  border:none;
-  border-radius:14px;
-  cursor:pointer;
-  font-weight:bold;
-  transition:0.2s;
-}
-
-.btn:hover{
-  transform:scale(1.05);
-}
-
-.btn-green{
-  background:#2ecc71;
-  color:white;
-}
-
-.btn-blue{
-  background:#3498db;
-  color:white;
+    margin:0;
+    background:#fff;
+    font-family:sans-serif;
+    text-align:center;
+    overflow:hidden;
+    color:#333;
 }
 
 .score-bar{
-  display:flex;
-  justify-content:space-around;
-  align-items:center;
-
-  padding:15px;
-
-  border-bottom:2px solid #f8f8f8;
+    display:flex;
+    justify-content:space-around;
+    align-items:center;
+    padding:15px;
+    border-bottom:2px solid #f5f5f5;
 }
 
 .hearts{
-  color:#e74c3c;
-  display:block;
-  height:25px;
+    color:#e74c3c;
+    display:block;
+    height:25px;
 }
 
 #timer{
-  font-size:3.2rem;
-  font-weight:900;
+    font-size:3rem;
+    font-weight:bold;
+}
+
+#msg{
+    margin-top:15px;
 }
 
 .ans-container{
-  display:flex;
-  gap:10px;
-  padding:15px;
+    display:flex;
+    gap:10px;
+    padding:15px;
 }
 
 .ans-box{
-  flex-grow:1;
+    flex-grow:1;
+    padding:15px;
+    border-radius:15px;
+    border:2px solid #eee;
+    font-size:1.2rem;
+    text-align:center;
+    transition:0.2s;
+}
 
-  border:2px solid #eee;
-  border-radius:15px;
+.btn{
+    padding:12px 20px;
+    border:none;
+    border-radius:12px;
+    cursor:pointer;
+    font-weight:bold;
+    transition:0.2s;
+}
 
-  padding:15px;
+.btn:hover{
+    transform:scale(1.05);
+}
 
-  font-size:1.2rem;
-  text-align:center;
-
-  transition:0.2s;
+.btn-green{
+    background:#2ecc71;
+    color:white;
 }
 
 .grid{
-  display:grid;
-  grid-template-columns:repeat(7,1fr);
-
-  gap:10px;
-  padding:15px;
-
-  height:42vh;
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    gap:10px;
+    padding:15px;
 }
 
 .letter{
-  background:#fff;
+    background:white;
+    border:2px solid #f5f5f5;
+    border-radius:15px;
+    height:60px;
 
-  border:2px solid #f5f5f5;
-  border-radius:15px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
 
-  display:flex;
-  align-items:center;
-  justify-content:center;
+    font-size:1.4rem;
+    font-weight:bold;
 
-  font-size:1.4rem;
-  font-weight:bold;
-
-  transition:0.25s;
+    transition:0.25s;
 }
 
 .letter:hover{
-  transform:scale(1.08);
+    transform:scale(1.08);
 }
 
 .used{
-  opacity:0.1;
-  transform:scale(0.7);
-  pointer-events:none;
+    opacity:0.1;
+    transform:scale(0.7);
+    pointer-events:none;
 }
 
 .golden-mode{
-  border:3px solid #ffd700 !important;
-  background:#fffdf0 !important;
-  color:#b8860b !important;
-
-  box-shadow:0 0 15px rgba(255,215,0,0.5);
+    border:3px solid gold !important;
+    background:#fff8dc !important;
+    color:#b8860b !important;
+    box-shadow:0 0 15px rgba(255,215,0,0.5);
 }
 
 #lock{
-  position:fixed;
-  inset:0;
+    position:fixed;
+    inset:0;
+    background:rgba(255,255,255,0.7);
+    backdrop-filter:blur(4px);
 
-  background:rgba(255,255,255,0.7);
+    display:none;
+    align-items:center;
+    justify-content:center;
 
-  backdrop-filter:blur(4px);
-
-  display:none;
-
-  align-items:center;
-  justify-content:center;
-
-  z-index:1000;
-}
-
-@keyframes shake{
-
-  0%{transform:translateX(0);}
-  25%{transform:translateX(-5px);}
-  50%{transform:translateX(5px);}
-  75%{transform:translateX(-5px);}
-  100%{transform:translateX(0);}
-}
-
-.shake{
-  animation:shake 0.3s;
+    z-index:1000;
 }
 
 #winnerScreen{
-  position:fixed;
-  inset:0;
+    position:fixed;
+    inset:0;
+    background:rgba(255,255,255,0.95);
 
-  background:rgba(255,255,255,0.95);
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
 
-  z-index:9999;
-
-  display:none;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
+    z-index:9999;
 }
 
-#winnerText{
-  font-size:3rem;
-  margin-bottom:20px;
+@keyframes shake {
+
+    0%{
+        transform:translateX(0);
+    }
+
+    25%{
+        transform:translateX(-5px);
+    }
+
+    50%{
+        transform:translateX(5px);
+    }
+
+    75%{
+        transform:translateX(-5px);
+    }
+
+    100%{
+        transform:translateX(0);
+    }
 }
 
-.room-box{
-  background:#fafafa;
-  padding:12px;
-  border-radius:12px;
-  margin-bottom:15px;
+.shake{
+    animation:shake 0.3s;
 }
 
 </style>
@@ -555,74 +173,35 @@ body{
 
 <body>
 
-<div id="setupLayer">
-
-  <h1>🏁 سباق الحروف</h1>
-
-  <div class="mode-card">
-
-    <h3>🎮 إنشاء غرفة</h3>
-
-    <button class="btn btn-green" onclick="createRoom()">
-      إنشاء غرفة
-    </button>
-
-    <div class="room-box">
-      كود الغرفة:
-      <b id="roomCodeText">----</b>
-    </div>
-
-  </div>
-
-  <div class="mode-card">
-
-    <h3>🚪 دخول غرفة</h3>
-
-    <input
-      id="roomInput"
-      class="ans-box"
-      placeholder="اكتب الكود"
-    />
-
-    <br><br>
-
-    <button class="btn btn-blue" onclick="joinRoom()">
-      دخول
-    </button>
-
-  </div>
-
-</div>
-
 <div id="winnerScreen">
 
-  <div id="winnerText"></div>
+    <h1 id="winnerText"></h1>
 
-  <button class="btn btn-green" onclick="resetGame()">
-    🔄 لعب مرة أخرى
-  </button>
+    <button class="btn btn-green" onclick="location.reload()">
+        🔄 لعب مرة أخرى
+    </button>
 
 </div>
 
 <div id="lock">
-  <h2>⏳ دور الخصم...</h2>
+    <h2>⏳ دور الخصم...</h2>
 </div>
 
 <div class="score-bar">
 
-  <div>
-    P1
-    <span id="p1Hearts" class="hearts"></span>
-    <b id="p1S">0</b>
-  </div>
+    <div>
+        P1
+        <span class="hearts" id="p1Hearts">❤️❤️❤️</span>
+        <b id="p1S">0</b>
+    </div>
 
-  <div id="timer">15</div>
+    <div id="timer">15</div>
 
-  <div>
-    P2
-    <span id="p2Hearts" class="hearts"></span>
-    <b id="p2S">0</b>
-  </div>
+    <div>
+        P2
+        <span class="hearts" id="p2Hearts">❤️❤️❤️</span>
+        <b id="p2S">0</b>
+    </div>
 
 </div>
 
@@ -630,38 +209,190 @@ body{
 
 <div class="ans-container">
 
-  <input
-    type="text"
-    id="ansInput"
-    class="ans-box"
-    placeholder="اكتب الإجابة..."
-    disabled
-    autocomplete="off"
-  >
+    <input
+        type="text"
+        id="ansInput"
+        class="ans-box"
+        placeholder="اكتب الإجابة..."
+        autocomplete="off"
+    >
 
-  <button class="btn btn-green" onclick="submitAns()">
-    ✅
-  </button>
+    <button class="btn btn-green" onclick="submitAns()">
+        ✅
+    </button>
 
 </div>
 
-<div class="grid">
+<div class="grid" id="lettersGrid"></div>
 
 <script>
 
+const chars = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي";
+
+const dictionary = {
+    "حيوان 🦁": ["أسد","أرنب","بطة","بقر","تمساح","جمل","حصان","خروف","دجاج","فيل","قرد","كلب","نمر","قطة"],
+    "بلاد 🌍": ["ألمانيا","أردن","بحرين","تونس","تركيا","جزائر","سعودية","سوريا","عراق","عمان","فرنسا","فلسطين","قطر","كويت","لبنان","مصر","مغرب","يمن"],
+    "جماد 🚗": ["باب","بيت","تلفاز","ثلاجة","حقيبة","خزانة","دفتر","سيارة","طاولة","قلم","كتاب","هاتف","كرسي"],
+    "أكلة 🍎": ["أرز","بيتزا","برغر","تمر","تفاح","جبن","خبز","شوربة","عسل","عنب","كباب","لحم","موز"]
+};
+
+let currentLetter = "";
+let currentCategory = "";
+let timer = 15;
+
+let p1S = 0;
+let p2S = 0;
+
+let p1L = 3;
+let p2L = 3;
+
+let usedLetters = {};
+let usedAnswers = {};
+
+const goldenLetter =
+    chars[Math.floor(Math.random() * chars.length)];
+
 chars.split('').forEach(l => {
 
-  document.write(`
-    <div class="letter" onclick="pick('${l}')">
-      ${l}
-    </div>
-  `);
+    const div = document.createElement("div");
+
+    div.className = "letter";
+
+    if(l === goldenLetter){
+        div.classList.add("golden-mode");
+    }
+
+    div.innerText = l;
+
+    div.onclick = () => pickLetter(l);
+
+    document.getElementById("lettersGrid").appendChild(div);
 
 });
 
-</script>
+function pickLetter(letter){
 
-</div>
+    if(usedLetters[letter]) return;
+
+    currentLetter = letter;
+
+    usedLetters[letter] = true;
+
+    document.querySelectorAll(".letter").forEach(el => {
+
+        if(el.innerText === letter){
+            el.classList.add("used");
+        }
+
+    });
+
+    const cats = Object.keys(dictionary);
+
+    currentCategory =
+        cats[Math.floor(Math.random() * cats.length)];
+
+    document.getElementById("msg").innerText =
+        currentCategory + " بحرف (" + currentLetter + ")";
+
+    timer = 15;
+
+}
+
+function submitAns(){
+
+    const input =
+        document.getElementById("ansInput");
+
+    const val = input.value.trim();
+
+    if(!val) return;
+
+    if(usedAnswers[val]){
+
+        alert("تم استخدام الكلمة مسبقاً");
+
+        return;
+    }
+
+    const correctLetter =
+        val.startsWith(currentLetter);
+
+    const correctWord =
+        (dictionary[currentCategory] || []).includes(val);
+
+    if(correctLetter && correctWord){
+
+        usedAnswers[val] = true;
+
+        const pts =
+            currentLetter === goldenLetter ? 2 : 1;
+
+        p1S += pts;
+
+        document.getElementById("p1S").innerText = p1S;
+
+        input.value = "";
+
+        document.getElementById("msg").innerText =
+            "اختر حرفاً جديداً";
+
+    } else {
+
+        // الاهتزاز
+        input.classList.remove("shake");
+
+        void input.offsetWidth;
+
+        input.classList.add("shake");
+
+        setTimeout(() => {
+            input.classList.remove("shake");
+        }, 400);
+
+        alert("إجابة خاطئة ❌");
+
+    }
+
+}
+
+setInterval(() => {
+
+    if(currentLetter){
+
+        timer--;
+
+        document.getElementById("timer").innerText = timer;
+
+        if(timer <= 0){
+
+            p1L--;
+
+            document.getElementById("p1Hearts").innerText =
+                "❤️".repeat(p1L);
+
+            timer = 15;
+
+            currentLetter = "";
+
+            document.getElementById("msg").innerText =
+                "انتهى الوقت ⏰";
+
+            if(p1L <= 0){
+
+                document.getElementById("winnerScreen").style.display = "flex";
+
+                document.getElementById("winnerText").innerText =
+                    "😢 خسرت اللعبة";
+
+            }
+
+        }
+
+    }
+
+},1000);
+
+</script>
 
 </body>
 </html>
