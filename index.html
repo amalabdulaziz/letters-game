@@ -54,7 +54,6 @@ body{
     border:2px solid #eee;
     font-size:1.2rem;
     text-align:center;
-    transition:0.2s;
 }
 
 .btn{
@@ -115,19 +114,6 @@ body{
     box-shadow:0 0 15px rgba(255,215,0,0.5);
 }
 
-#lock{
-    position:fixed;
-    inset:0;
-    background:rgba(255,255,255,0.7);
-    backdrop-filter:blur(4px);
-
-    display:none;
-    align-items:center;
-    justify-content:center;
-
-    z-index:1000;
-}
-
 #winnerScreen{
     position:fixed;
     inset:0;
@@ -141,31 +127,33 @@ body{
     z-index:9999;
 }
 
+/* الاهتزاز */
+
 @keyframes shake {
 
     0%{
-        transform:translateX(0);
+        margin-right:0;
     }
 
     25%{
-        transform:translateX(-5px);
+        margin-right:8px;
     }
 
     50%{
-        transform:translateX(5px);
+        margin-right:-8px;
     }
 
     75%{
-        transform:translateX(-5px);
+        margin-right:8px;
     }
 
     100%{
-        transform:translateX(0);
+        margin-right:0;
     }
 }
 
 .shake{
-    animation:shake 0.3s;
+    animation:shake 0.35s;
 }
 
 </style>
@@ -183,25 +171,15 @@ body{
 
 </div>
 
-<div id="lock">
-    <h2>⏳ دور الخصم...</h2>
-</div>
-
 <div class="score-bar">
 
     <div>
-        P1
+        اللاعب
         <span class="hearts" id="p1Hearts">❤️❤️❤️</span>
         <b id="p1S">0</b>
     </div>
 
     <div id="timer">15</div>
-
-    <div>
-        P2
-        <span class="hearts" id="p2Hearts">❤️❤️❤️</span>
-        <b id="p2S">0</b>
-    </div>
 
 </div>
 
@@ -230,21 +208,39 @@ body{
 const chars = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي";
 
 const dictionary = {
-    "حيوان 🦁": ["أسد","أرنب","بطة","بقر","تمساح","جمل","حصان","خروف","دجاج","فيل","قرد","كلب","نمر","قطة"],
-    "بلاد 🌍": ["ألمانيا","أردن","بحرين","تونس","تركيا","جزائر","سعودية","سوريا","عراق","عمان","فرنسا","فلسطين","قطر","كويت","لبنان","مصر","مغرب","يمن"],
-    "جماد 🚗": ["باب","بيت","تلفاز","ثلاجة","حقيبة","خزانة","دفتر","سيارة","طاولة","قلم","كتاب","هاتف","كرسي"],
-    "أكلة 🍎": ["أرز","بيتزا","برغر","تمر","تفاح","جبن","خبز","شوربة","عسل","عنب","كباب","لحم","موز"]
+
+    "حيوان 🦁": [
+        "أسد","أرنب","بطة","بقر","تمساح","جمل",
+        "حصان","خروف","دجاج","فيل","قرد","كلب",
+        "نمر","قطة"
+    ],
+
+    "بلاد 🌍": [
+        "ألمانيا","أردن","بحرين","تونس","تركيا",
+        "جزائر","سعودية","سوريا","عراق","عمان",
+        "فرنسا","فلسطين","قطر","كويت","لبنان",
+        "مصر","مغرب","يمن"
+    ],
+
+    "جماد 🚗": [
+        "باب","بيت","تلفاز","ثلاجة","حقيبة",
+        "خزانة","دفتر","سيارة","طاولة",
+        "قلم","كتاب","هاتف","كرسي"
+    ],
+
+    "أكلة 🍎": [
+        "أرز","بيتزا","برغر","تمر","تفاح",
+        "جبن","خبز","شوربة","عسل","عنب",
+        "كباب","لحم","موز"
+    ]
 };
 
 let currentLetter = "";
 let currentCategory = "";
 let timer = 15;
 
-let p1S = 0;
-let p2S = 0;
-
-let p1L = 3;
-let p2L = 3;
+let score = 0;
+let hearts = 3;
 
 let usedLetters = {};
 let usedAnswers = {};
@@ -296,6 +292,8 @@ function pickLetter(letter){
 
     timer = 15;
 
+    document.getElementById("timer").innerText = timer;
+
 }
 
 function submitAns(){
@@ -327,18 +325,22 @@ function submitAns(){
         const pts =
             currentLetter === goldenLetter ? 2 : 1;
 
-        p1S += pts;
+        score += pts;
 
-        document.getElementById("p1S").innerText = p1S;
+        document.getElementById("p1S").innerText =
+            score;
 
         input.value = "";
 
+        currentLetter = "";
+
         document.getElementById("msg").innerText =
-            "اختر حرفاً جديداً";
+            "✅ إجابة صحيحة! اختر حرفاً جديداً";
 
     } else {
 
-        // الاهتزاز
+        // تشغيل الاهتزاز
+
         input.classList.remove("shake");
 
         void input.offsetWidth;
@@ -346,10 +348,12 @@ function submitAns(){
         input.classList.add("shake");
 
         setTimeout(() => {
+
             input.classList.remove("shake");
+
         }, 400);
 
-        alert("إجابة خاطئة ❌");
+        alert("❌ إجابة خاطئة");
 
     }
 
@@ -361,28 +365,30 @@ setInterval(() => {
 
         timer--;
 
-        document.getElementById("timer").innerText = timer;
+        document.getElementById("timer").innerText =
+            timer;
 
         if(timer <= 0){
 
-            p1L--;
+            hearts--;
 
             document.getElementById("p1Hearts").innerText =
-                "❤️".repeat(p1L);
-
-            timer = 15;
+                "❤️".repeat(hearts);
 
             currentLetter = "";
 
+            timer = 15;
+
             document.getElementById("msg").innerText =
-                "انتهى الوقت ⏰";
+                "⏰ انتهى الوقت";
 
-            if(p1L <= 0){
+            if(hearts <= 0){
 
-                document.getElementById("winnerScreen").style.display = "flex";
+                document.getElementById("winnerScreen").style.display =
+                    "flex";
 
                 document.getElementById("winnerText").innerText =
-                    "😢 خسرت اللعبة";
+                    "😢 انتهت اللعبة";
 
             }
 
