@@ -58,7 +58,7 @@
                 "ث": ["ثول", "ثادق", "ثيساليا", "ثرمداء"],
                 "ج": ["جزائر", "جورجيا", "جيبوتي", "جاكرتا", "جيزان", "جنيف"],
                 "ح": ["حلب", "حمص", "حائل", "حيدر آباد", "حمراء"],
-                "خ": ["خرطوم", "خraسان", "خميس مشيط", "خبر", "خيبر", "خان يونس"],
+                "خ": ["خرطوم", "خراسان", "خميس مشيط", "خبر", "خيبر", "خان يونس"],
                 "د": ["دنمارك", "دوحة", "دمام", "دمشق", "دبي", "دبلن", "دلهي"],
                 "ذ": ["ذي قار", "ذمار", "ذبيان"],
                 "ر": ["روسيا", "رياض", "رومانيا", "رواندا", "روما", "رابغ", "رأس التنورة"],
@@ -109,7 +109,7 @@
                 "ن": ["نظارة", "نافذة", "نعل", "ناقوس", "نفاثة", "نرد", "نحاس"],
                 "ه": ["هاتف", "هرم", "هاون", "هليكوبتر"],
                 "و": ["ورقة", "وسادة", "وشاح", "وعاء", "وتد"],
-                "ي": ["يخت", "يافطة", "يويو", "ياقوت", "يد"]
+                "ي": ["يخت", "ياfطة", "يويو", "ياقوت", "يد"]
             },
             "أكلة 🍎": {
                 "أ": ["أرز", "أناناس", "أفوكادو", "أم علي", "أومليت", "إسبريسو", "أيس كريم"],
@@ -117,7 +117,7 @@
                 "ت": ["تمر", "تفاح", "توت", "تبولة", "تاكو", "تورتة", "تونة"],
                 "ث": ["ثوم", "ثريد", "ثمار البحر"],
                 "ج": ["جبن", "جزر", "جوافة", "جوز الهند", "جريش", "جمبري", "جلي"],
-                "ح": ["حلوى", "خبز", "حمص", "حليب", "حبحب", "حلاوة طحينية"],
+                "ح": ["حلوى", "خبز", "حمص", "حليب", "حبحب", "حlaوة طحينية"],
                 "خ": ["خوخ", "خيار", "خس", "خبيزة", "خردل", "خل"],
                 "د": ["دجاج", "دونات", "دبس", "ديك رومي", "دقة"],
                 "ذ": ["ذرة", "ذبيحة"],
@@ -321,75 +321,66 @@
                         document.getElementById('msg').innerText = `الخصم يكتب: ${d.cat} بحرف (${d.currentL})`;
                     }
 
-                    // 🤖 حلقة تشغيل الذكاء الاصطناعي المستقل والمضمون بالكامل:
+                    // 🤖 تشغيل وإرسال إجابة الذكاء الاصطناعي بشكل آمن ومحمي من المقاطعة:
                     if (d.isAI && d.turn === 'p2' && !aiThinking) {
                         aiThinking = true;
                         
                         setTimeout(() => {
-                            // إعادة قراءة سريعة لبيانات السيرفر لمنع أي تضارب تزامني
-                            get(gameRef).then((latestSnap) => {
-                                const currentData = latestSnap.val();
-                                if(!currentData || currentData.turn !== 'p2') { aiThinking = false; return; }
-
-                                if (currentData.status === 'picking') {
-                                    const avail = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي".split('').filter(l => !currentData.used || !currentData.used[l]);
-                                    if (avail.length > 0) {
-                                        const randomLetter = avail[Math.floor(Math.random() * avail.length)];
-                                        const categories = Object.keys(dictionary);
-                                        const chosenCat = categories[Math.floor(Math.random() * 4)];
-                                        
-                                        update(gameRef, { 
-                                            currentL: randomLetter, 
-                                            status: "answering", 
-                                            [`used/${randomLetter}`]: true, 
-                                            timer: currentData.level,
-                                            cat: chosenCat, 
-                                            aiLastAns: "", 
-                                            currentTypedText: ""
-                                        }).then(() => { aiThinking = false; });
-                                    } else {
-                                        aiThinking = false;
-                                    }
+                            if (d.status === 'picking') {
+                                const avail = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي".split('').filter(l => !d.used || !d.used[l]);
+                                if (avail.length > 0) {
+                                    const randomLetter = avail[Math.floor(Math.random() * avail.length)];
+                                    const categories = Object.keys(dictionary);
+                                    const chosenCat = categories[Math.floor(Math.random() * 4)];
+                                    
+                                    update(gameRef, { 
+                                        currentL: randomLetter, 
+                                        status: "answering", 
+                                        [`used/${randomLetter}`]: true, 
+                                        timer: d.level,
+                                        cat: chosenCat, 
+                                        aiLastAns: "", 
+                                        currentTypedText: ""
+                                    }).then(() => { aiThinking = false; });
                                 } else {
-                                    const validWords = (dictionary[currentData.cat] && dictionary[currentData.cat][currentData.currentL]) || [];
-                                    let aiAnswer = "";
-                                    let isCorrect = false;
-
-                                    if (validWords.length > 0) {
-                                        aiAnswer = validWords[Math.floor(Math.random() * validWords.length)];
-                                        isCorrect = true;
-                                    } else {
-                                        aiAnswer = "عجزت!";
-                                    }
-
-                                    update(gameRef, { currentTypedText: aiAnswer }).then(() => {
-                                        setTimeout(() => {
-                                            if (isCorrect) {
-                                                window.pS(1000, 'sine', 0.2);
-                                                const pts = (currentData.currentL === currentData.golden) ? 2 : 1;
-                                                update(gameRef, {
-                                                    p2S: (currentData.p2S || 0) + pts,
-                                                    turn: 'p1',
-                                                    status: 'picking',
-                                                    timer: currentData.level,
-                                                    aiLastAns: `🤖 إجابة الكمبيوتر السابقة: "${aiAnswer}" ✅`,
-                                                    currentTypedText: ""
-                                                }).then(() => { aiThinking = false; });
-                                            } else {
-                                                window.pS(150, 'sawtooth', 0.5);
-                                                update(gameRef, {
-                                                    p2L: (currentData.p2L || 1) - 1,
-                                                    turn: 'p1',
-                                                    status: 'picking',
-                                                    timer: currentData.level,
-                                                    aiLastAns: `🤖 الكمبيوتر عجز عن الإجابة! ❌`,
-                                                    currentTypedText: ""
-                                                }).then(() => { aiThinking = false; });
-                                            }
-                                        }, 1500); 
-                                    });
+                                    aiThinking = false;
                                 }
-                            });
+                            } else {
+                                const validWords = (dictionary[d.cat] && dictionary[d.cat][d.currentL]) || [];
+                                let aiAnswer = "";
+                                let isCorrect = false;
+
+                                if (validWords.length > 0) {
+                                    aiAnswer = validWords[Math.floor(Math.random() * validWords.length)];
+                                    isCorrect = true;
+                                } else {
+                                    aiAnswer = "عجزت!";
+                                }
+
+                                // تحديث نهائي مباشر لتسجيل الإجابة والانتقال دون كتابة نصية مكررة تعطل التزامن
+                                if (isCorrect) {
+                                    window.pS(1000, 'sine', 0.2);
+                                    const pts = (d.currentL === d.golden) ? 2 : 1;
+                                    update(gameRef, {
+                                        p2S: (d.p2S || 0) + pts,
+                                        turn: 'p1',
+                                        status: 'picking',
+                                        timer: d.level,
+                                        aiLastAns: `🤖 إجابة الكمبيوتر السابقة: "${aiAnswer}" ✅`,
+                                        currentTypedText: aiAnswer
+                                    }).then(() => { aiThinking = false; });
+                                } else {
+                                    window.pS(150, 'sawtooth', 0.5);
+                                    update(gameRef, {
+                                        p2L: (d.p2L || 1) - 1,
+                                        turn: 'p1',
+                                        status: 'picking',
+                                        timer: d.level,
+                                        aiLastAns: `🤖 الكمبيوتر عجز عن الإجابة! ❌`,
+                                        currentTypedText: "عجزت!"
+                                    }).then(() => { aiThinking = false; });
+                                }
+                            }
                         }, 2000);
                     }
                 }
