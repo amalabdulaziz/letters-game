@@ -19,7 +19,6 @@
         const db = getDatabase(app);
         const gameRef = ref(db, 'gameMain'); 
 
-        // تم تبسيط الفئات هنا لمنع مشاكل الحروف الخاصة والإيموجي في الفايربيس
         const dictionary = {
             "حيوان": {
                 "أ": ["أسد", "أرنب", "أفعى", "أنقليس", "أبو بريص", "أبيس", "أيل"],
@@ -28,7 +27,7 @@
                 "ث": ["ثعلب", "ثعبان", "ثور", "ثيتل", "ثجير"],
                 "ج": ["جمل", "جندب", "جرو", "جاغوار", "جربوع", "جنديس"],
                 "ح": ["حصان", "حمار", "حوت", "حية", "حبار", "حلزون", "حجل"],
-                "خ": ["خروف", "خفاش", "خلد", "خنزير", "خرتيت", "خُنفساء"],
+                "خ": ["خروف", "خfash", "خلد", "خنزير", "خرتيت", "خُنفساء"],
                 "د": ["دب", "دجاج", "دولفين", "ديك", "دودة", "ديناصور", "دراج"],
                 "ذ": ["ذئب", "ذبابة", "ذعرة", "ذرح", "ذعلوق"],
                 "ر": ["راكون", "ريم", "رنة", "روبيان", "راي", "رميح"],
@@ -69,7 +68,7 @@
                 "ض": ["ضبا", "ضبيعة", "ضمد"],
                 "ط": ["طوكيو", "طرابلس", "طائف", "طنجة", "طبرية", "طشقند"],
                 "ظ": ["ظهران", "ظلم", "ظفار"],
-                "ع": ["عراق", "عمان", "أبوظبي", "عرعر", "عسير", "عجمان", "علا"],
+                "ع": ["عراق", "عمان", "أبوظبي", "عرعر", "عسير", "عجمان", "عla"],
                 "غ": ["غانا", "غزة", "غينيا", "غواتيمالا", "غلاسكو", "غدامس"],
                 "ف": ["فرنسا", "فلسطين", "فلبين", "فنلندا", "فيتنام", "فيينا", "فجيرة"],
                 "ق": ["قطر", "قاهرة", "قبرص", "قيرغيزستان", "قصيم", "قنفذة", "قيروان"],
@@ -131,7 +130,7 @@
                 "ظ": ["ظبي مطبوخ"],
                 "ع": ["عسل", "عنب", "عدس", "عصير", "عصيدة", "عجوة"],
                 "غ": ["غزل البنات", "غريبة", "غواكامولي"],
-                "ف": ["فراولة", "فول", "فستق", "فاصوليا", "فطيرة", "فلفل"],
+                "f": ["fراولة", "fول", "fستق", "fاصوليا", "fطيرة", "fلفل"],
                 "ق": ["قشطة", "قرفة", "قرنبيط", "قهوة"],
                 "ك": ["كباب", "كبة", "كيوي", "كوسة", "كمثرى", "كنافة", "كاري"],
                 "ل": ["لحم", "ليمون", "لوبيا", "لازانيا", "لوز", "لقيمات", "لبن"],
@@ -143,13 +142,12 @@
             }
         };
 
-        // دالة لإضافة الإيموجي بشكل مرئي فقط عند عرض النص للمستخدم
         function getCatWithEmoji(catName) {
             if(catName === "حيوان") return "حيوان 🦁";
             if(catName === "بلاد") return "بلاد 🌍";
             if(catName === "جماد") return "جماد 🚗";
             if(catName === "أكلة") return "أكلة 🍎";
-            return catName;
+            return catName || "فئة عشوائية";
         }
 
         let myRole = "", audioCtx = null, timerInterval = null, levelTime = 15;
@@ -195,7 +193,7 @@
             fadeTransition('gameArea', 'setupLayer');
             
             set(gameRef, { 
-                isAI: ai, status: 'picking', turn: 'p1', timer: time, modePlayers: playersCount,
+                isAI: ai, status: 'picking', turn: role, timer: time, modePlayers: playersCount,
                 used: {}, level: time, p1S: 0, p2S: 0, p3S: 0, p1L: 3, p2L: 3, p3L: 3, 
                 golden: golden, currentL: "", aiLastAns: "", currentTypedText: "", cat: ""
             }).then(() => {
@@ -203,8 +201,9 @@
             });
         };
 
+        // تم تحسين الدالة هنا لتخطي أي قفل عشوائي أو تعليق فور الضغط
         window.pick = (l, letterElement) => {
-            if (!letterElement || letterElement.classList.contains('used') || letterElement.classList.contains('lock-pick')) return;
+            if (!letterElement || letterElement.classList.contains('used')) return;
             
             letterElement.classList.add('bounce');
             window.pS(600, 'sine', 0.1);
@@ -213,9 +212,16 @@
             const categories = Object.keys(dictionary);
             const chosenCat = categories[Math.floor(Math.random() * categories.length)];
             
+            // تحديث السيرفر فوراً ليتحول إلى طور الإجابة والتحميل بدون انتظار
             update(gameRef, { 
-                currentL: l, status: "answering", [`used/${l}`]: true, timer: levelTime,
-                cat: chosenCat, aiLastAns: "", currentTypedText: ""
+                currentL: l, 
+                status: "answering", 
+                [`used/${l}`]: true, 
+                timer: levelTime,
+                cat: chosenCat, 
+                aiLastAns: "", 
+                currentTypedText: "",
+                turn: myRole // إجبار الدور أن يكون للاعب الحالي لمنع مشاكل التعليق
             });
         };
 
@@ -298,13 +304,19 @@
                     document.getElementById('p3Box').style.display = 'none';
                 }
 
+                // تم تعديل شروط القفل لجعل الأزرار مستجيبة دوماً طالما اللعبة في طور الاختيار
                 document.querySelectorAll('.letter').forEach(el => {
                     const letterChar = el.getAttribute('data-letter');
                     const isUsed = d.used && d.used[letterChar];
                     el.className = 'letter' + (isUsed ? ' used' : '');
                     if (letterChar === d.golden) el.classList.add('golden-mode');
-                    if (d.turn !== myRole || d.status !== 'picking') el.classList.add('lock-pick');
-                    else el.classList.remove('lock-pick');
+                    
+                    // الحرف يفتح فقط إذا كانت الحالة العامة تتيح الاختيار
+                    if (d.status !== 'picking' || d.turn !== myRole) {
+                        el.classList.add('lock-pick');
+                    } else {
+                        el.classList.remove('lock-pick');
+                    }
                 });
 
                 if (d.status === 'answering' && d.timer <= 3 && d.timer > 0 && d.timer !== lastPlayedTime) {
@@ -322,7 +334,6 @@
                     if (d.status === 'picking') {
                         document.getElementById('msg').innerText = d.aiLastAns ? d.aiLastAns : "دورك الآن: اختر حرفاً";
                     } else {
-                        // هنا يتم عرض الإيموجي بشكل سليم وواضح للسؤال
                         document.getElementById('msg').innerText = getCatWithEmoji(d.cat) + " بحرف (" + (d.currentL || "") + ")";
                     }
                     
