@@ -19,14 +19,132 @@
         const db = getDatabase(app);
         const gameRef = ref(db, 'gameMain'); 
 
+        // 📚 القاموس الضخم والموسع بعد تصحيح حرف (ن) العربي بالكامل
         const dictionary = {
-            "حيوان 🦁": { "أ": ["أسد", "أرنب"], "ب": ["ببر", "بقر"], "ت": ["تمساح", "تنين"], "ث": ["ثعلب", "ثعبان"], "ج": ["جمل", "جندب"], "ح": ["حصان", "حمار"], "خ": ["خروف", "خfاش"], "د": ["دب", "دجاج"], "ذ": ["ذئب", "ذبابة"], "ر": ["راكون", "ريم"], "ز": ["زرافة", "زنبور"], "س": ["سمكة", "سنجاب"], "ش": ["شامبانزي", "شبل"], "ص": ["صقر", "صرصور"], "ض": ["ضفدع", "ضبع"], "ط": ["طاووس", "طنان"], "ظ": ["ظبي", "ظربان"], "ع": ["عقرب", "عصفور"], "غ": ["غزال", "غراب"], "ف": ["فيل", "فهد"], "ق": ["قرد", "قطة"], "ك": ["كلب", "كنغر"], "ل": ["لقلق", "لبؤة"], "م": ["ماعز", "مهر"], "ن": ["نمر", "نمل"], "ه": ["هدهد", "هر"], "و": ["وحيد القرن", "وزة"], "ي": ["يعسوب", "يمامة"] },
-            "بلاد 🌍": { "أ": ["ألمانيا", "أمريكا"], "ب": ["بحرين", "بلجيكا"], "ت": ["تونس", "تركيا"], "ث": ["ثيساليا"], "ج": ["جزائر", "جورجيا"], "ح": ["حلب", "حمص"], "خ": ["خرطوم", "خراسان"], "د": ["دنمارك", "دوحة"], "ذ": ["ذي قار"], "ر": ["روسيا", "رياض"], "ز": ["زامبيا", "زيمبابوي"], "س": ["سعودية", "سوريا"], "ش": ["شيلي", "شيشان"], "ص": ["صين", "صومال"], "ض": ["ضبا"], "ط": ["طوكيو", "طرابلس"], "ظ": ["ظهران"], "ع": ["عراق", "عمان"], "غ": ["غانا", "غزة"], "ف": ["فرنسا", "فلسطين"], "ق": ["قطر", "قاهرة"], "ك": ["كويت", "كندا"], "ل": ["لبنان", "ليبيا"], "م": ["مصر", "مغرب"], "ن": ["نمسا", "نرويج"], "ه": ["هند", "هولندا"], "و": ["واشنطن", "ويلز"], "ي": ["يمن", "يابان"] },
-            "جماد 🚗": { "أ": ["إبريق", "أريكة"], "ب": ["باب", "بيت"], "ت": ["تلفاز", "تابوت"], "ث": ["ثلاجة", "ثوب"], "ج": ["جدار", "جرس"], "ح": ["حقيبة", "حبل"], "خ": ["خزانة", "خاتم"], "د": ["دفتر", "دولاب"], "ذ": ["ذهب", "ذخيرة"], "ر": ["راديو", "رصيف"], "ز": ["زجاج", "زر"], "س": ["سيارة", "سبورة"], "ش": ["شباك", "شاحنة"], "ص": ["صندوق", "صنبور"], "ض": ["ضمادة", "ضوء"], "ط": ["طاولة", "طائرة"], "ظ": ["ظرف", "ظلال"], "ع": ["عربة", "عصا"], "غ": ["غسالة", "غليون"], "ف": ["فانوس", "فرشاة"], "ق": ["قلم", "قفل"], "ك": ["كتاب", "كرسي"], "ل": ["لوحة", "لمبة"], "م": ["مكتب", "مفتاح"], "ن": ["نظارة", "نافذة"], "ه": ["هاتف", "هرم"], "و": ["ورقة", "وسادة"], "ي": ["يخت", "ياfطة"] },
-            "أكلة 🍎": { "أ": ["أرز", "أناناس"], "ب": ["بيتزا", "برغر"], "ت": ["تمر", "تفاح"], "ث": ["ثوم", "ثريد"], "ج": ["جبن", "جزر"], "ح": ["حلوى", "خبز"], "خ": ["خوخ", "خيار"], "د": ["دجاج", "دونات"], "ذ": ["ذرة", "ذبيحة"], "ر": ["رمان", "رطب"], "ز": ["زيتون", "زنجبيل"], "س": ["سمك", "سلطة"], "ش": ["شاورما", "شوكولاتة"], "ص": ["صيادية", "صفيحة"], "ض": ["ضلوع مشوية"], "ط": ["طماطم", "طحينة"], "ظ": ["ظبي مطبوخ"], "ع": ["عسل", "عنب"], "غ": ["غزل البنات", "غريبة"], "ف": ["فراولة", "فول"], "ق": ["قشطة", "قرفة"], "ك": ["كباب", "كبة"], "ل": ["لحم", "ليمون"], "م": ["مانجو", "موز"], "ن": ["نعناع", "نوتيلا"], "ه": ["هريس", "هليون"], "و": ["ورق عنب", "ويفر"], "ي": ["يوسفي", "يقطين"] }
+            "حيوان 🦁": {
+                "أ": ["أسد", "أرنب", "أفعى", "أنقليس", "أبو بريص", "أبيس", "أيل"],
+                "ب": ["ببر", "بقر", "ببغاء", "بطة", "بومة", "برغوث", "باز"],
+                "ت": ["تمساح", "تنين", "تيل", "تود", "تفة"],
+                "ث": ["ثعلب", "ثعبان", "ثور", "ثيتل", "ثجير"],
+                "ج": ["جمل", "جندب", "جرو", "جاغوار", "جربوع", "جنديس"],
+                "ح": ["حصان", "حمار", "حوت", "حية", "حبار", "حلزون", "حجل"],
+                "خ": ["خروف", "خفاش", "خلد", "خنزير", "خرتيت", "خُنفساء"],
+                "د": ["دب", "دجاج", "دولفين", "ديك", "دودة", "ديناصور", "دراج"],
+                "ذ": ["ذئب", "ذبابة", "ذعرة", "ذرح", "ذعلوق"],
+                "ر": ["راكون", "ريم", "رنة", "روبيان", "راي", "رميح"],
+                "ز": ["زرافة", "زنبور", "زوجل", "زرقاء", "زقزوق"],
+                "س": ["سمكة", "سنجاب", "سرطان", "سلحفاة", "سمان", "سيد قشطة"],
+                "ش": ["شامبانزي", "شبل", "شاهين", "شحرور", "شيهم", "شص"],
+                "ص": ["صقر", "صرصور", "صرد", "صميد", "صياد السمك"],
+                "ض": ["ضفدع", "ضبع"],
+                "ط": ["طاووس", "طنان", "طلي", "طائر الطنان", "طوبال"],
+                "ظ": ["ظبي", "ظربان"],
+                "ع": ["عقرب", "عصفور", "عنكبوت", "عجل", "عير", "عقاب", "عندليب"],
+                "غ": ["غزال", "غراب", "غوريلا", "غرير", "غواص"],
+                "ف": ["فيل", "فهد", "فأر", "فراشة", "فقمة", "فلامينجو"],
+                "ق": ["قرد", "قطة", "قنفذ", "قرش", "قندس", "قنبرة", "قرقف"],
+                "ك": ["كلب", "كنغر", "كوالا", "كاسر", "كركدن", "كروان"],
+                "ل": ["لقلق", "لبؤة", "لاما", "لوريس", "ليث"],
+                "م": ["ماعز", "مهر", "مرجان", "مها"],
+                "ن": ["نمر", "نمل", "نسر", "نورس", "نعامة", "نحل", "نمس"],
+                "ه": ["هدهد", "هر", "هامستر", "هيلا", "هجرس"],
+                "و": ["وحيد القرن", "وزة", "وعل", "وطواط", "ورل", "وشق"],
+                "ي": ["يعسوب", "يمامة", "يربوع", "يرقة"]
+            },
+            "بلاد 🌍": {
+                "أ": ["ألمانيا", "أمريكا", "أستراليا", "أرجنتين", "أنغولا", "أبها", "أردن"],
+                "ب": ["بحرين", "بلجيكا", "برازيل", "بريطانيا", "باكستان", "بغداد", "بيروت"],
+                "ت": ["تونس", "تركيا", "تايلاند", "تشاد", "تبوك", "تايوان", "تورونتو"],
+                "ث": ["ثول", "ثادق", "ثيساليا", "ثرمداء"],
+                "ج": ["جزائر", "جورجيا", "جيبوتي", "جاكرتا", "جيزان", "جنيف"],
+                "ح": ["حلب", "حمص", "حائل", "حيدر آباد", "حمراء"],
+                "خ": ["خرطوم", "خراسان", "خميس مشيط", "خبر", "خيبر", "خان يونس"],
+                "د": ["دنمارك", "دوحة", "دمام", "دمشق", "دبي", "دبلن", "دلهي"],
+                "ذ": ["ذي قار", "ذمار", "ذبيان"],
+                "ر": ["روسيا", "رياض", "رومانيا", "رواندا", "روما", "رابغ", "رأس التنورة"],
+                "ز": ["زامبيا", "زيمبابوي", "زغرب", "زلفي", "زحلة"],
+                "س": ["سعودية", "سوريا", "سودان", "سويد", "سويسرا", "سنغافورة", "سول"],
+                "ش": ["شيلي", "شيشان", "شارقة", "شيكاغو", "شقراء", "شرورة"],
+                "ص": ["صين", "صومال", "صنعاء", "صيدا", "صبيا", "صفوى"],
+                "ض": ["ضبا", "ضبيعة", "ضمد"],
+                "ط": ["طوكيو", "طرابلس", "طائف", "طنجة", "طبرية", "طشقند"],
+                "ظ": ["ظهران", "ظلم", "ظفار"],
+                "ع": ["عراق", "عمان", "أبوظبي", "عرعر", "عسير", "عجمان", "علا"],
+                "غ": ["غانا", "غزة", "غينيا", "غواتيمالا", "غلاسكو", "غدامس"],
+                "ف": ["فرنسا", "فلسطين", "فلبين", "فنلندا", "فيتنام", "فيينا", "فجيرة"],
+                "ق": ["قطر", "قاهرة", "قبرص", "قيرغيزستان", "قصيم", "قنفذة", "قيروان"],
+                "ك": ["كويت", "كندا", "كينيا", "كولومبيا", "كابول", "كوالالمبور", "كراتشي"],
+                "ل": ["لبنان", "ليبيا", "لندن", "لوس أنجلوس", "لشبونة", "ليما", "لاغوس"],
+                "م": ["مصر", "مغرب", "مكة", "مدينة", "موريتانيا", "ماليزيا", "مدريد"],
+                "ن": ["نمسا", "نرويج", "نيجيريا", "نيوزيلندا", "نيويورك", "نيودلهي", "نجران"],
+                "ه": ["هند", "هولندا", "هونغ كونغ", "هيوستن", "هفوف", "هامبورغ"],
+                "و": ["واشنطن", "ويلز", "وادي الدواسر", "وجدة", "وارسو"],
+                "ي": ["يمن", "يابان", "يونان", "ينبع", "يوكوهاما", "ياوندي"]
+            },
+            "جماد 🚗": {
+                "أ": ["إبريق", "أريكة", "أقلام", "أسلاك", "أساور", "أرجوحة", "ألبوم"],
+                "ب": ["باب", "بيت", "برج", "بساط", "برواز", "بطارية", "باخرة"],
+                "ت": ["تلفاز", "تابوت", "تاج", "تمثال", "تلفون", "تنورة", "تراب"],
+                "ث": ["ثلاجة", "ثوب", "ثريا", "ثقاب", "ثلج", "ثقال"],
+                "ج": ["جدار", "جرس", "جوال", "جسر", "جناح", "جريدة", "جورب"],
+                "ح": ["حقيبة", "حبل", "حذاء", "حائط", "حديد", "حاوية", "حزام"],
+                "خ": ["خزانة", "خاتم", "خriطة", "خيط", "خوذة", "خرطوم", "خيمة"],
+                "د": ["دفتر", "دولاب", "درع", "دبوس", "دراجة", "دلو", "دينامو"],
+                "ذ": ["ذهب", "ذخيرة", "ذراع"],
+                "ر": ["راديو", "رصيف", "رمل", "ريشة", "رف", "رادار", "روبوت"],
+                "ز": ["زجاج", "زر", "زينة", "زورق", "زاوية", "زردية"],
+                "س": ["سيارة", "سبورة", "ساعة", "سفينة", "سرير", "ستارة", "سيف"],
+                "ش": ["شباك", "شاحنة", "شمعة", "شاكوش", "شريط", "شمسية", "شاشة"],
+                "ص": ["صندوق", "صنبور", "صاروخ", "صينية", "صلصال", "صخرة"],
+                "ض": ["ضمادة", "ضوء", "ضريح"],
+                "ط": ["طاولة", "طائرة", "طوب", "طربوش", "طوق", "طبلة", "طفاية"],
+                "ظ": ["ظرف", "ظلال"],
+                "ع": ["عربة", "عصا", "علم", "عقد", "عجلة", "عمارة", "عداد"],
+                "غ": ["غسالة", "غليون", "غمد", "غواصة", "غربال", "غطاء"],
+                "ف": ["فانوس", "فرشاة", "فستان", "فرن", "فأس", "فلين", "فيديو"],
+                "ق": ["قلم", "قفل", "قارب", "قماش", "قبعة", "قطار", "قصر"],
+                "ك": ["كتاب", "كرسي", "كرة", "كأس", "كمبيوتر", "كابل", "كيس"],
+                "ل": ["لوحة", "لمبة", "لجام", "لؤلؤ", "لوح", "ليزر"],
+                "م": ["مكتب", "مفتاح", "مقص", "مرآة", "مظلة", "مذياع", "ملعقة"],
+                "ن": ["نظارة", "نافذة", "نعل", "ناقوس", "نفاثة", "نرد", "نحاس"],
+                "ه": ["هاتف", "هرم", "هاون", "هليكوبتر"],
+                "و": ["ورقة", "وسادة", "وشاح", "وعاء", "وتد"],
+                "ي": ["يخت", "يافطة", "يويو", "ياقوت", "يد"]
+            },
+            "أكلة 🍎": {
+                "أ": ["أرز", "أناناس", "أفوكادو", "أم علي", "أومليت", "إسبريسو", "أيس كريم"],
+                "ب": ["بيتزا", "برغر", "بطيخ", "برتقال", "بامية", "باذنجان", "بسكويت"],
+                "ت": ["تمر", "تفاح", "توت", "تبولة", "تاكو", "تورتة", "تونة"],
+                "ث": ["ثوم", "ثريد", "ثمار البحر"],
+                "ج": ["جبن", "جزر", "جوافة", "جوز الهند", "جريش", "جمبري", "جلي"],
+                "ح": ["حلوى", "خبز", "حمص", "حليب", "حبحب", "حلاوة طحينية"],
+                "خ": ["خوخ", "خيار", "خس", "خبيزة", "خردل", "خل"],
+                "د": ["دجاج", "دونات", "دبس", "ديك رومي", "دقة"],
+                "ذ": ["ذرة", "ذبيحة"],
+                "ر": ["رمان", "رطب", "رقاق", "رافيولي", "رز بلبن"],
+                "ز": ["زيتون", "زنجبيل", "زبادي", "زعتر", "زبيب", "زبدة"],
+                "س": ["سمك", "سلطة", "سوشي", "سبانخ", "سندويش", "سمسم", "سحلب"],
+                "ش": ["شاورما", "شوكولاتة", "شوربة", "شمام", "شيز كيك", "شبت"],
+                "ص": ["صيادية", "صفيحة", "صنوبر", "صلصة", "صالونة"],
+                "ض": ["ضلوع مشوية"],
+                "ط": ["طماطم", "طحينة", "طعمية", "طاجن"],
+                "ظ": ["ظبي مطبوخ"],
+                "ع": ["عسل", "عنب", "عدس", "عصير", "عصيدة", "عجوة"],
+                "غ": ["غزل البنات", "غريبة", "غواكامولي"],
+                "ف": ["فراولة", "فول", "فستق", "فاصوليا", "فطيرة", "فلفل"],
+                "ق": ["قشطة", "قرفة", "قرنبيط", "قهوة"],
+                "ك": ["كباب", "كبة", "كيوي", "كوسة", "كمثرى", "كنافة", "كاري"],
+                "ل": ["لحم", "ليمون", "لوبيا", "لازانيا", "لوز", "لقيمات", "لبن"],
+                "م": ["مانجو", "موز", "ملوخية", "مندي", "مكرونة", "مقلوبة", "مربى"],
+                "ن": ["نعناع", "نوتيلا", "نودلز", "نارجيل", "نجتس"],
+                "ه": ["هريس", "هليون", "همبرغر", "هندباء"],
+                "و": ["ورق عنب", "ويفر", "وافل"],
+                "ي": ["يوسفي", "يقطين", "يخنة", "يانسون"]
+            }
         };
 
         let myRole = "", audioCtx = null, timerInterval = null, levelTime = 15;
+        let aiThinking = false; 
 
         window.pS = (f, t = 'sine', d = 0.2, v = 0.1) => {
             try {
@@ -59,7 +177,7 @@
         }
 
         window.setupGame = (role, ai, time, playersCount = 2) => {
-            myRole = role; levelTime = time;
+            myRole = role; levelTime = time; aiThinking = false;
             window.pS(440, 'triangle', 0.4, 0.05);
             const chars = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي";
             const golden = chars[Math.floor(Math.random() * chars.length)];
@@ -75,15 +193,15 @@
         };
 
         window.pick = (l, letterElement) => {
-            if (letterElement.classList.contains('used') || letterElement.classList.contains('lock-pick')) return;
+            if (!letterElement || letterElement.classList.contains('used') || letterElement.classList.contains('lock-pick')) return;
             
             letterElement.classList.add('bounce');
             window.pS(600, 'sine', 0.1);
-            setTimeout(() => letterElement.classList.remove('bounce'), 500);
+            setTimeout(() => { if(letterElement) letterElement.classList.remove('bounce'); }, 500);
             
             const categories = Object.keys(dictionary);
             update(gameRef, { 
-                currentL: l, status: "answering", [`used/${l}`]: true, timer: 15,
+                currentL: l, status: "answering", [`used/${l}`]: true, timer: levelTime,
                 cat: categories[Math.floor(Math.random() * 4)], aiLastAns: "", currentTypedText: ""
             });
         };
@@ -130,10 +248,9 @@
             } else {
                 next = d.turn === 'p1' ? 'p2' : 'p1';
             }
+            aiThinking = false;
             update(gameRef, { turn: next, status: 'picking', timer: d.level, currentTypedText: "" });
         }
-
-        let aiThinking = false; // لمنع تكرار تنفيذ دالة الـ AI
 
         function listen() {
             onValue(ref(db, 'gameMain'), (snap) => {
@@ -147,7 +264,6 @@
                 document.getElementById('p3Hearts').innerText = "❤️".repeat(d.p3L || 0);
                 document.getElementById('timer').innerText = d.timer;
 
-                // تحديث النص المكتوب حالياً (للـ AI أو الخصم الثاني) على الشاشة
                 if (d.turn !== myRole) {
                     document.getElementById('ansInput').value = d.currentTypedText || "";
                 }
@@ -159,9 +275,10 @@
                 }
 
                 document.querySelectorAll('.letter').forEach(el => {
-                    const isUsed = d.used && d.used[el.innerText];
+                    const letterChar = el.getAttribute('data-letter');
+                    const isUsed = d.used && d.used[letterChar];
                     el.className = 'letter' + (isUsed ? ' used' : '');
-                    if (el.innerText === d.golden) el.classList.add('golden-mode');
+                    if (letterChar === d.golden) el.classList.add('golden-mode');
                     if (d.turn !== myRole || d.status !== 'picking') el.classList.add('lock-pick');
                     else el.classList.remove('lock-pick');
                 });
@@ -195,7 +312,7 @@
                         document.getElementById('msg').innerText = `الخصم يكتب: ${d.cat} بحرف (${d.currentL})`;
                     }
 
-                    // نظام الذكاء الاصطناعي التفاعلي المطور بناءً على فكرتكِ
+                    // تشغيل الذكاء الاصطناعي المثالي التفاعلي
                     if (d.isAI && d.turn === 'p2' && !aiThinking) {
                         aiThinking = true;
                         setTimeout(() => {
@@ -204,7 +321,6 @@
                                 if (avail.length > 0) {
                                     const randomLetter = avail[Math.floor(Math.random() * avail.length)];
                                     const letterEl = document.querySelector(`.letter[data-letter="${randomLetter}"]`);
-                                    aiThinking = false;
                                     pick(randomLetter, letterEl);
                                 } else {
                                     aiThinking = false;
@@ -221,7 +337,6 @@
                                     aiAnswer = "عجزت!";
                                 }
 
-                                // رفع نص إجابة الـ AI على قاعدة البيانات لتظهر فوراً على شاشة اللاعب الآخر
                                 update(gameRef, { currentTypedText: aiAnswer }).then(() => {
                                     setTimeout(() => {
                                         if (isCorrect) {
@@ -234,7 +349,7 @@
                                                 timer: d.level,
                                                 aiLastAns: `🤖 إجابة الكمبيوتر السابقة: "${aiAnswer}" ✅`,
                                                 currentTypedText: ""
-                                            }).then(() => { aiThinking = false; });
+                                            });
                                         } else {
                                             window.pS(150, 'sawtooth', 0.5);
                                             update(gameRef, {
@@ -244,8 +359,9 @@
                                                 timer: d.level,
                                                 aiLastAns: `🤖 الكمبيوتر عجز عن الإجابة! ❌`,
                                                 currentTypedText: ""
-                                            }).then(() => { aiThinking = false; });
+                                            });
                                         }
+                                        aiThinking = false;
                                     }, 1500); 
                                 });
                             }
@@ -302,107 +418,4 @@
         .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
         .btn:active { transform: translateY(1px); }
 
-        .btn-green { background: var(--primary); color: white; box-shadow: 0 0 10px var(--primary-glow); }
-        .btn-green:hover { box-shadow: 0 0 20px var(--primary-glow); }
-        
-        .btn-yellow { background: #f1c40f; color: black; box-shadow: 0 0 10px rgba(241, 196, 15, 0.5); }
-        .btn-yellow:hover { box-shadow: 0 0 20px rgba(241, 196, 15, 0.7); }
-
-        .btn-red { background: var(--danger); color: white; box-shadow: 0 0 10px var(--danger-glow); }
-        .btn-red:hover { box-shadow: 0 0 20px var(--danger-glow); }
-
-        .btn-blue { background: var(--secondary); color: white; box-shadow: 0 0 10px var(--secondary-glow); }
-        .btn-blue:hover { box-shadow: 0 0 20px var(--secondary-glow); }
-
-        .btn-purple { background: #9b59b6; color: white; box-shadow: 0 0 10px rgba(155, 89, 182, 0.5); }
-        .btn-purple:hover { box-shadow: 0 0 20px rgba(155, 89, 182, 0.7); }
-
-        .score-bar { display: flex; justify-content: space-around; padding: 20px; border-bottom: 1px solid #eee; align-items: center; background: #fff; width: 100%; box-sizing: border-box; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
-        .hearts { color: var(--danger); font-size: 1.2rem; display: block; height: 24px; margin-bottom: 5px; }
-        #timer { font-size: 4rem; font-weight: 900; color: #2d3436; text-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .player-info { display: flex; flex-direction: column; align-items: center; }
-        .score-num { font-size: 1.5rem; font-weight: bold; color: #555; }
-
-        #msg { margin: 20px 0; font-size: 1.3rem; color: #2d3436; font-weight: 600; min-height: 40px; padding: 0 10px; }
-
-        .ans-container { display: flex; padding: 0 20px; gap: 10px; width: 100%; max-width: 600px; box-sizing: border-box; }
-        .ans-box { flex-grow: 1; padding: 18px; border-radius: 15px; border: 2px solid #eee; font-size: 1.3rem; text-align: center; outline: none; transition: border-color 0.3s ease; color: #333; font-weight: bold; }
-        .ans-box:focus { border-color: var(--secondary); box-shadow: 0 0 10px var(--secondary-glow); }
-        .ans-box:disabled { background: #f9f9f9; color: #555; }
-
-        .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; padding: 20px; width: 100%; max-width: 800px; box-sizing: border-box; margin-top: 20px; }
-        .letter { background: #fff; display: flex; align-items: center; justify-content: center; border: 2px solid #f0f0f0; border-radius: 18px; font-size: 1.6rem; font-weight: bold; color: #444; cursor: pointer; transition: all 0.3s ease; user-select: none; position: relative; }
-        .letter:hover:not(.used):not(.lock-pick) { transform: translateY(-3px); border-color: #ddd; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
-        
-        @keyframes bounce { 0%, 20%, 50%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-15px); } 60% { transform: translateY(-7px); } }
-        .bounce { animation: bounce 0.5s ease; border-color: var(--secondary) !important; color: var(--secondary) !important; box-shadow: 0 0 15px var(--secondary-glow) !important; }
-
-        .golden-mode { border: 3px solid #ffd700 !important; background: #fffdf0 !important; color: #b8860b !important; box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); }
-        .used { opacity: 0.15; pointer-events: none; transform: scale(0.9); }
-        .lock-pick { cursor: not-allowed; opacity: 0.6; }
-
-        @media (max-width: 600px) {
-            h1 { font-size: 2rem; }
-            .letter { font-size: 1.3rem; border-radius: 12px; padding: 10px 0; }
-            .grid { gap: 8px; grid-template-columns: repeat(6, 1fr); }
-            #timer { font-size: 3rem; }
-            .score-bar { padding: 15px; }
-        }
-    </style>
-</head>
-<body>
-
-    <div id="setupLayer">
-        <h1>🏆 سباق الحروف</h1>
-        
-        <div class="mode-card">
-            <h3>👤 ضد الكمبيوتر (الذكاء الاصطناعي)</h3>
-            <button class="btn btn-green" onclick="setupGame('p1', true, 20)">سهل 🟢</button>
-            <button class="btn btn-yellow" onclick="setupGame('p1', true, 15)">متوسط 🟡</button>
-            <button class="btn btn-red" onclick="setupGame('p1', true, 7)">صعب 🔴</button>
-        </div>
-
-        <div class="mode-card">
-            <h3>👥 تحدي الأصدقاء (تعدد اللاعبين)</h3>
-            <p>نمط لاعبين اثنين (2):</p>
-            <button class="btn btn-blue" onclick="setupGame('p1', false, 15, 2)">لاعب 1</button>
-            <button class="btn btn-blue" onclick="setupGame('p2', false, 15, 2)">لاعب 2</button>
-            
-            <p style="margin-top: 15px;">نمط ثلاثة لاعبين (3):</p>
-            <button class="btn btn-purple" onclick="setupGame('p1', false, 15, 3)">لاعب 1</button>
-            <button class="btn btn-purple" onclick="setupGame('p2', false, 15, 3)">لاعب 2</button>
-            <button class="btn btn-purple" onclick="setupGame('p3', false, 15, 3)">لاعب 3</button>
-        </div>
-
-        <button class="btn" style="background:#333; color:white; margin-top:20px;" onclick="cleanServer()">🔄 تصفير السيرفر بالكامل</button>
-    </div>
-
-    <div id="gameArea">
-        <div class="score-bar">
-            <div class="player-info">P1<span id="p1Hearts" class="hearts"></span><b id="p1S" class="score-num">0</b></div>
-            <div id="timer">15</div>
-            <div class="player-info">P2<span id="p2Hearts" class="hearts"></span><b id="p2S" class="score-num">0</b></div>
-            <div id="p3Box" class="player-info" style="display:none;">P3<span id="p3Hearts" class="hearts"></span><b id="p3S" class="score-num">0</b></div>
-        </div>
-
-        <h2 id="msg">اختر حرفاً</h2>
-
-        <div class="ans-container">
-            <input type="text" id="ansInput" class="ans-box" placeholder="اكتب الإجابة هنا..." disabled autocomplete="off">
-            <button class="btn btn-green" style="padding:18px 28px;" onclick="submitAns()">✅</button>
-        </div>
-
-        <div class="grid">
-            <script>
-                const arChars = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي".split('');
-                arChars.forEach(l => {
-                    document.write(`<div class="letter" data-letter="${l}" onclick="pick('${l}', this)">${l}</div>`);
-                });
-            </script>
-        </div>
-        
-        <button class="btn" style="background:#f1c40f; color:black; margin-top:auto; margin-bottom: 20px; font-size: 0.8rem; padding: 8px 16px;" onclick="cleanServer()">🔄 خروج للقائمة الرئيسية</button>
-    </div>
-
-</body>
-</html>
+        .btn-green { background: var(--primary); color: white; box-shadow: 0 0
