@@ -17,7 +17,7 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const gameRef = ref(db, 'letterGame_Official');
+        const gameRef = ref(db, 'gameMain'); // اسم مختصر وسريع جداً لقاعدة البيانات
 
         const dictionary = {
             "حيوان 🦁": ["أسد", "أرنب", "بطة", "بقر", "تمساح", "ثعلب", "جمل", "حصان", "حمار", "خروف", "دجاج", "ذئب", "زرافة", "سمكة", "صقر", "ضفدع", "غزال", "فيل", "قرد", "كلب", "نمر", "قطة"],
@@ -48,14 +48,15 @@
             const chars = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي";
             const golden = chars[Math.floor(Math.random() * chars.length)];
             
+            // إخفاء الشاشة فوراً لتجنب أي تعليق بصري
+            document.getElementById('setupLayer').style.display = 'none';
+            
             set(gameRef, { 
                 isAI: ai, status: 'picking', turn: 'p1', timer: time, modePlayers: playersCount,
                 used: {}, level: time, p1S: 0, p2S: 0, p3S: 0, p1L: 3, p2L: 3, p3L: 3, 
                 golden: golden, currentL: "" 
-            }).then(() => {
-                document.getElementById('setupLayer').style.display = 'none';
-                listen();
             });
+            listen();
         };
 
         window.pick = (l) => {
@@ -78,7 +79,7 @@
                 if (isCorrectChar && isCorrectCat) {
                     window.pS(1000, 'sine', 0.2);
                     const pts = (d.currentL === d.golden) ? 2 : 1;
-                    runTransaction(ref(db, `letterGame_Official/${myRole}S`), s => (s || 0) + pts);
+                    runTransaction(ref(db, `gameMain/${myRole}S`), s => (s || 0) + pts);
                     getNextTurn(d);
                     input.value = "";
                 } else {
@@ -129,7 +130,7 @@
                 }
 
                 if (d.timer <= 0 && d.status === 'answering' && d.turn === myRole) {
-                    runTransaction(ref(db, `letterGame_Official/${myRole}L`), l => (l || 1) - 1);
+                    runTransaction(ref(db, `gameMain/${myRole}L`), l => (l || 1) - 1);
                     getNextTurn(d);
                 }
 
@@ -138,7 +139,7 @@
                     document.getElementById('ansInput').disabled = (d.status === 'picking');
                     document.getElementById('msg').innerText = d.status==='picking' ? "دورك الآن: اختر حرفاً" : d.cat + " بحرف (" + d.currentL + ")";
                     if(d.status === 'answering' && !timerInterval) {
-                        timerInterval = setInterval(() => runTransaction(ref(db, 'letterGame_Official/timer'), t => t > 0 ? t - 1 : 0), 1000);
+                        timerInterval = setInterval(() => runTransaction(ref(db, 'gameMain/timer'), t => t > 0 ? t - 1 : 0), 1000);
                     }
                 } else {
                     document.getElementById('lock').style.display = 'flex';
@@ -158,9 +159,7 @@
         }
 
         window.cleanServer = () => {
-            if(confirm("هل تريد تصفير النظام؟")) {
-                remove(gameRef).then(() => location.reload());
-            }
+            remove(gameRef).then(() => location.reload());
         };
     </script>
 
