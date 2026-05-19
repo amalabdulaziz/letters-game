@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>سباق الحروف - نسخة أمل الشاملة 🏆</title>
+    <title>سباق الحروف 🏆</title>
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.1.1/firebase-app.js";
@@ -17,7 +17,7 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const gameRef = ref(db, 'letterGame_Amal_V1');
+        const gameRef = ref(db, 'letterGame_Official');
 
         const dictionary = {
             "حيوان 🦁": ["أسد", "أرنب", "بطة", "بقر", "تمساح", "ثعلب", "جمل", "حصان", "حمار", "خروف", "دجاج", "ذئب", "زرافة", "سمكة", "صقر", "ضفدع", "غزال", "فيل", "قرد", "كلب", "نمر", "قطة"],
@@ -78,7 +78,7 @@
                 if (isCorrectChar && isCorrectCat) {
                     window.pS(1000, 'sine', 0.2);
                     const pts = (d.currentL === d.golden) ? 2 : 1;
-                    runTransaction(ref(db, `letterGame_Amal_V1/${myRole}S`), s => (s || 0) + pts);
+                    runTransaction(ref(db, `letterGame_Official/${myRole}S`), s => (s || 0) + pts);
                     getNextTurn(d);
                     input.value = "";
                 } else {
@@ -129,7 +129,7 @@
                 }
 
                 if (d.timer <= 0 && d.status === 'answering' && d.turn === myRole) {
-                    runTransaction(ref(db, `letterGame_Amal_V1/${myRole}L`), l => (l || 1) - 1);
+                    runTransaction(ref(db, `letterGame_Official/${myRole}L`), l => (l || 1) - 1);
                     getNextTurn(d);
                 }
 
@@ -138,7 +138,7 @@
                     document.getElementById('ansInput').disabled = (d.status === 'picking');
                     document.getElementById('msg').innerText = d.status==='picking' ? "دورك الآن: اختر حرفاً" : d.cat + " بحرف (" + d.currentL + ")";
                     if(d.status === 'answering' && !timerInterval) {
-                        timerInterval = setInterval(() => runTransaction(ref(db, 'letterGame_Amal_V1/timer'), t => t > 0 ? t - 1 : 0), 1000);
+                        timerInterval = setInterval(() => runTransaction(ref(db, 'letterGame_Official/timer'), t => t > 0 ? t - 1 : 0), 1000);
                     }
                 } else {
                     document.getElementById('lock').style.display = 'flex';
@@ -193,7 +193,7 @@
 <body>
 
     <div id="setupLayer">
-        <h1 style="font-size: 2.2rem; margin-bottom: 20px;">🏆 سباق الحروف - نسخة أمل</h1>
+        <h1 style="font-size: 2.2rem; margin-bottom: 20px;">🏆 سباق الحروف</h1>
         
         <div class="mode-card">
             <h3>👤 ضد الكمبيوتر (الذكاء الاصطناعي)</h3>
