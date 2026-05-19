@@ -17,7 +17,7 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const gameRef = ref(db, 'gameMain'); // اسم مختصر وسريع جداً لقاعدة البيانات
+        const gameRef = ref(db, 'gameMain'); 
 
         const dictionary = {
             "حيوان 🦁": ["أسد", "أرنب", "بطة", "بقر", "تمساح", "ثعلب", "جمل", "حصان", "حمار", "خروف", "دجاج", "ذئب", "زرافة", "سمكة", "صقر", "ضفدع", "غزال", "فيل", "قرد", "كلب", "نمر", "قطة"],
@@ -26,7 +26,7 @@
             "أكلة 🍎": ["أرز", "بيتزا", "برغر", "تمر", "تفاح", "جبن", "حلوى", "خبز", "خوخ", "دجاج", "ذرة", "رمان", "زيتون", "سمك", "سلطة", "شوربة", "عسل", "عنب", "فراولة", "فول", "كباب", "لحم", "مانجو", "موز"]
         };
 
-        let myRole = "", audioCtx = null, timerInterval = null;
+        let myRole = "", audioCtx = null, timerInterval = null, levelTime = 15, totalPlayers = 2, isAIGame = false;
         const categories = Object.keys(dictionary);
 
         window.pS = (f, t = 'sine', d = 0.2, v = 0.1) => {
@@ -44,11 +44,14 @@
 
         window.setupGame = (role, ai, time, playersCount = 2) => {
             myRole = role;
+            levelTime = time;
+            totalPlayers = playersCount;
+            isAIGame = ai;
             window.pS(440, 'triangle', 0.4, 0.05);
+            
             const chars = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي";
             const golden = chars[Math.floor(Math.random() * chars.length)];
             
-            // إخفاء الشاشة فوراً لتجنب أي تعليق بصري
             document.getElementById('setupLayer').style.display = 'none';
             
             set(gameRef, { 
@@ -158,8 +161,35 @@
             });
         }
 
+        // دالة التصفير الذكية والآمنة التي لا تخرب على بقية اللاعبين
         window.cleanServer = () => {
-            remove(gameRef).then(() => location.reload());
+            clearInterval(timerInterval);
+            timerInterval = null;
+            
+            const chars = "أبتثجحخدذرزسشصضطظعغفقكلمنهوي";
+            const golden = chars[Math.floor(Math.random() * chars.length)];
+
+            // إذا لم تبدأ اللعبة بعد، قم بعمل ريفريش فقط
+            if (!myRole) {
+                location.reload();
+                return;
+            }
+
+            // تصفير آمن داخل قاعدة البيانات يعيد تهيئة القيم دون حذف مسار الجذر الرئيسي
+            update(gameRef, {
+                status: 'picking',
+                turn: 'p1',
+                timer: levelTime,
+                used: {},
+                p1S: 0, p2S: 0, p3S: 0,
+                p1L: 3, p2L: 3, p3L: 3,
+                golden: golden,
+                currentL: ""
+            }).then(() => {
+                document.getElementById('ansInput').value = "";
+                document.getElementById('ansInput').disabled = true;
+                document.getElementById('msg').innerText = "تمت إعادة جولة اللعبة بنجاح! اختر حرفاً لتبدأ";
+            });
         };
     </script>
 
@@ -213,7 +243,7 @@
             <button class="btn btn-purple" onclick="setupGame('p3', false, 15, 3)">لاعب 3</button>
         </div>
 
-        <button class="btn" style="background:#333; color:white; margin-top:10px;" onclick="cleanServer()">🔄 تصفير السيرفر بالكامل</button>
+        <button class="btn" style="background:#333; color:white; margin-top:10px;" onclick="cleanServer()">🔄 تصفير الجولة الحالية</button>
     </div>
 
     <div id="lock"><h2>⏳ انتظر دور الخصم...</h2></div>
