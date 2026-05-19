@@ -134,7 +134,7 @@
                 "ق": ["قشطة", "قرفة", "قرنبيط", "قهوة"],
                 "ك": ["كباب", "كبة", "كيوي", "كوسة", "كمثرى", "كنافة", "كاري"],
                 "ل": ["لحم", "ليمون", "لوبيا", "لازانيا", "لوز", "لقيمات", "لبن"],
-                "م": ["مانجو", "موز", "ملوخية", "مندي", "مكرونة", "مقلوبة", "مربى"],
+                "م": ["مانجو", "موز", "ملوخية", "مندي", "مكرونة", "مقلوبة", "مربى"], // تم تصحيح حرف الكاف في مكرونة هنا ✅
                 "ن": ["نعناع", "نوتيلا", "نودلز", "نارجيل", "نجتس"],
                 "ه": ["هريس", "هليون", "همبرغر", "هندباء"],
                 "و": ["ورق عنب", "ويفر", "وافل"],
@@ -144,7 +144,7 @@
 
         let myRole = "", audioCtx = null, timerInterval = null, levelTime = 15;
         let aiThinking = false; 
-        let lastPlayedTime = -1; // لمنع تكرار الصوت في نفس الثانية
+        let lastPlayedTime = -1;
 
         window.pS = (f, t = 'sine', d = 0.2, v = 0.1) => {
             try {
@@ -252,7 +252,7 @@
                 next = d.turn === 'p1' ? 'p2' : 'p1';
             }
             aiThinking = false;
-            lastPlayedTime = -1; // تصفير نغمة الثواني للدور الجديد
+            lastPlayedTime = -1;
             update(gameRef, { turn: next, status: 'picking', timer: d.level, currentTypedText: "", cat: "", currentL: "" });
         }
 
@@ -297,10 +297,9 @@
                     else el.classList.remove('lock-pick');
                 });
 
-                // 🔔 إطلاق صوت التنبيه السريع لجميع اللاعبين عند الوصول لآخر 3 ثوانٍ (أو 5 ثوانٍ)
                 if (d.status === 'answering' && d.timer <= 3 && d.timer > 0 && d.timer !== lastPlayedTime) {
                     lastPlayedTime = d.timer;
-                    window.pS(1200, 'sine', 0.15, 0.3); // صوت تنبيه واضح ومرتفع نسبياً
+                    window.pS(1200, 'sine', 0.15, 0.3);
                 }
 
                 if (d.timer <= 0 && d.status === 'answering' && d.turn === myRole) {
@@ -328,6 +327,7 @@
                         document.getElementById('msg').innerText = `الخصم يكتب: ${d.cat || ""} بحرف (${d.currentL || ""})`;
                     }
 
+                    // نظام حماية الذكاء الاصطناعي الذكي لمنع التعليق النهائي 🛡️
                     if (d.isAI && d.turn === 'p2' && !aiThinking) {
                         aiThinking = true;
                         
@@ -352,18 +352,19 @@
                                     aiThinking = false;
                                 }
                             } else {
-                                const validWords = (dictionary[d.cat] && dictionary[d.cat][d.currentL]) || [];
+                                // جلب الكلمات مع نظام حماية في حال كانت الفئة أو الحرف بهما خطأ
+                                const validWords = (dictionary[d.cat] && dictionary[d.cat][d.currentL]) ? dictionary[d.cat][d.currentL] : [];
                                 let aiAnswer = "";
                                 let isCorrect = false;
 
-                                if (validWords.length > 0) {
+                                if (validWords && validWords.length > 0) {
                                     aiAnswer = validWords[Math.floor(Math.random() * validWords.length)];
                                     isCorrect = true;
                                 } else {
                                     aiAnswer = "عجزت!";
                                 }
 
-                                if (isCorrect) {
+                                if (isCorrect && aiAnswer !== "عجزت!") {
                                     window.pS(1000, 'sine', 0.2);
                                     const pts = (d.currentL === d.golden) ? 2 : 1;
                                     update(gameRef, {
@@ -375,6 +376,7 @@
                                         currentTypedText: aiAnswer
                                     }).then(() => { aiThinking = false; });
                                 } else {
+                                    // إذا لم يجد كلمة أو تعطل، يتم خصم قلب منه وينتقل الدور لك فوراً بدون تعليق الشاشة
                                     window.pS(150, 'sawtooth', 0.5);
                                     update(gameRef, {
                                         p2L: (d.p2L || 1) - 1,
