@@ -137,46 +137,31 @@ h1{
   justify-content:center;
 }
 .answerBox{
-  width:min(940px,96vw);
+  width:min(1180px,98vw);
   display:flex;
-  gap:8px;
-  padding:0 8px;
+  gap:12px;
+  padding:0 12px;
 }
+
 #answer{
   flex:1;
-  padding:22px;
-  border-radius:22px;
-  border:2px solid rgba(255,255,255,.25);
-  outline:0;
-  text-align:center;
-  font-size:1.45rem;
-  font-weight:900;
-  background:rgba(255,255,255,.95);
-  color:#222;
+  padding:28px;
+  border-radius:24px;
+  font-size:1.8rem;
 }
-#answer:disabled{opacity:.55}
+
 .grid{
-  width:min(980px,98vw);
-  margin:14px auto 8px;
-  padding:10px;
-  display:grid;
+  width:min(1180px,99vw);
+  margin:18px auto 10px;
+  padding:12px;
   grid-template-columns:repeat(7,1fr);
-  gap:9px;
-  overflow:auto;
+  gap:13px;
 }
+
 .letter{
-  min-height:72px;
-  border-radius:18px;
-  background:rgba(255,255,255,.92);
-  color:#222;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:1.75rem;
-  font-weight:1000;
-  cursor:pointer;
-  border:3px solid transparent;
-  box-shadow:0 8px 18px rgba(0,0,0,.18);
+  min-height:92px;
+  border-radius:22px;
+  font-size:2.25rem;
 }
 .letter.used{
   opacity:.16;
